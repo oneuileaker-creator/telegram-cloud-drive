@@ -70,7 +70,7 @@ async def process_upload(
             await db.commit()
 
             # ── Upload to Telegram ─────────────────────────────
-            tg = TelegramService(
+            tg = await TelegramService.get_pooled(
                 api_id=int(user.telegram_api_id),
                 api_hash=user.telegram_api_hash,
                 session_string=user.telegram_session
@@ -348,7 +348,7 @@ async def download_file(
     if not file_record:
         raise HTTPException(status_code=404, detail="File not found")
 
-    tg = TelegramService(
+    tg = await TelegramService.get_pooled(
         api_id=int(current_user.telegram_api_id),
         api_hash=current_user.telegram_api_hash,
         session_string=current_user.telegram_session
@@ -497,7 +497,7 @@ async def delete_file(
     if not file_record:
         raise HTTPException(status_code=404, detail="File not found")
 
-    tg = TelegramService(
+    tg = await TelegramService.get_pooled(
         api_id=int(current_user.telegram_api_id),
         api_hash=current_user.telegram_api_hash,
         session_string=current_user.telegram_session
@@ -634,7 +634,7 @@ async def delete_folder(
     if files:
         # If user has connected telegram, we clean up
         if current_user.is_telegram_connected:
-            tg = TelegramService(
+            tg = await TelegramService.get_pooled(
                 api_id=int(current_user.telegram_api_id),
                 api_hash=current_user.telegram_api_hash,
                 session_string=current_user.telegram_session

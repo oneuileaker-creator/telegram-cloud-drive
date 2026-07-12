@@ -19,10 +19,38 @@ from app.database.models import User
 from app.config import settings
 import logging
 import asyncio
+from typing import Dict
 
 logger = logging.getLogger(__name__)
 
 FTMS_CHANNEL_NAME = "FTMS-Storage"
+
+# ─── Global Connection Pool ────────────────────────────────────────────────────
+# Keyed by session_string → TelegramClient.
+# Clients stay connected across requests, eliminating per-request TCP overhead.
+_pool: Dict[str, TelegramClient] = {}
+_pool_lock = asyncio.Lock()
+
+
+async def _get_pooled_client(session_string: str, api_id: int, api_hash: str) -> TelegramClient:
+    """Return a connected (and pooled) TelegramClient for the given session."""
+    async with _pool_lock:
+        client = _pool.get(session_string)
+        if client is None:
+            client = TelegramClient(
+                StringSession(session_string),
+                api_id,
+                api_hash,
+                connection_retries=3,
+                retry_delay=1
+            )
+            await client.connect()
+            _pool[session_string] = client
+            logger.info("🔗 New pooled Telegram connection created")
+        elif not client.is_connected():
+            await client.connect()
+            logger.info("🔗 Reconnected pooled Telegram client")
+        return client
 
 
 class TelegramService:
@@ -31,16 +59,24 @@ class TelegramService:
         self,
         api_id: int,
         api_hash: str,
-        session_string: str = ""
+        session_string: str = "",
+        _pooled_client: TelegramClient = None
     ):
         self.api_id = api_id
         self.api_hash = api_hash
         self.session_string = session_string
-        self.client = TelegramClient(
+        self._is_pooled = _pooled_client is not None
+        self.client = _pooled_client or TelegramClient(
             StringSession(session_string),
             api_id,
             api_hash
         )
+
+    @classmethod
+    async def get_pooled(cls, api_id: int, api_hash: str, session_string: str) -> "TelegramService":
+        """Get a TelegramService backed by a persistent pooled connection."""
+        client = await _get_pooled_client(session_string, api_id, api_hash)
+        return cls(api_id, api_hash, session_string, _pooled_client=client)
 
     # ─── Auth Flow ────────────────────────────────────────────
 
@@ -115,7 +151,8 @@ class TelegramService:
             raise ValueError(f"2FA failed: {e}")
 
     async def disconnect(self):
-        if self.client.is_connected():
+        # Pooled clients stay alive for reuse; only disconnect non-pooled ones
+        if not self._is_pooled and self.client.is_connected():
             await self.client.disconnect()
 
     # ─── Channel Setup ────────────────────────────────────────
@@ -123,7 +160,8 @@ class TelegramService:
     async def setup_storage_channel(self) -> int:
         """Create a private channel to use as storage"""
         try:
-            await self.client.connect()
+            if not self.client.is_connected():
+                await self.client.connect()
             result = await self.client(CreateChannelRequest(
                 title=FTMS_CHANNEL_NAME,
                 about="FTMS Cloud Storage - Do not delete",
@@ -141,7 +179,8 @@ class TelegramService:
 
     async def get_or_create_channel(self, channel_id: int = None) -> int:
         """Get existing channel or create new one"""
-        await self.client.connect()
+        if not self.client.is_connected():
+            await self.client.connect()
 
         if channel_id:
             try:
@@ -171,7 +210,8 @@ class TelegramService:
     ) -> int:
         """Upload a file to Telegram channel"""
         try:
-            await self.client.connect()
+            if not self.client.is_connected():
+                await self.client.connect()
 
             # Upload file bytes
             uploaded = await self.client.upload_file(
@@ -221,7 +261,8 @@ class TelegramService:
     ) -> bytes:
         """Download a file by message ID"""
         try:
-            await self.client.connect()
+            if not self.client.is_connected():
+                await self.client.connect()
 
             try:
                 message = await self.client.get_messages(
@@ -257,11 +298,12 @@ class TelegramService:
         channel_id: int,
         offset: int = 0,
         limit: int = None,
-        chunk_size: int = 512 * 1024  # 512KB
+        chunk_size: int = 2 * 1024 * 1024  # 2MB for fewer round-trips
     ):
         """Yield blocks of file data as they are downloaded from Telegram"""
         try:
-            await self.client.connect()
+            if not self.client.is_connected():
+                await self.client.connect()
 
             try:
                 message = await self.client.get_messages(
@@ -298,7 +340,8 @@ class TelegramService:
     ) -> bool:
         """Delete file messages from Telegram"""
         try:
-            await self.client.connect()
+            if not self.client.is_connected():
+                await self.client.connect()
             try:
                 await self.client.delete_messages(channel_id, message_ids)
             except Exception:
@@ -329,11 +372,11 @@ class TelegramService:
 
     @classmethod
     async def from_user(cls, user: User) -> "TelegramService":
-        """Create TelegramService from a User model"""
+        """Create TelegramService from a User model — uses pooled connection."""
         if not user.is_telegram_connected:
             raise ValueError("Telegram not connected for this user")
 
-        return cls(
+        return await cls.get_pooled(
             api_id=int(user.telegram_api_id),
             api_hash=user.telegram_api_hash,
             session_string=user.telegram_session

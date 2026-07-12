@@ -99,7 +99,7 @@ async def get_thumbnail(
     if not file_record or not file_record.thumbnail_message_id:
         return Response(status_code=404)
 
-    tg = TelegramService(
+    tg = await TelegramService.get_pooled(
         api_id=int(current_user.telegram_api_id),
         api_hash=current_user.telegram_api_hash,
         session_string=current_user.telegram_session
