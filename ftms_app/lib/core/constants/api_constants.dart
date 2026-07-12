@@ -2,10 +2,9 @@
 class ApiConstants {
   ApiConstants._();
 
-  // Change this to your Render URL when deployed
-  static const String baseUrl = 'http://10.0.2.2:8000'; // Android emulator
+  static const String baseUrl = 'https://telegram-cloud-drive-9yx2.onrender.com'; // Production
+  // static const String baseUrl = 'http://10.0.2.2:8000'; // Android emulator
   // static const String baseUrl = 'http://localhost:8000'; // Windows
-  // static const String baseUrl = 'https://ftms-backend.onrender.com'; // Production
 
   // Auth
   static const String register    = '/api/auth/register';
