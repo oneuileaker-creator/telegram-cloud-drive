@@ -142,6 +142,7 @@ class TelegramService:
     async def get_or_create_channel(self, channel_id: int = None) -> int:
         """Get existing channel or create new one"""
         await self.client.connect()
+        await self.client.get_dialogs()
 
         if channel_id:
             try:
@@ -166,6 +167,7 @@ class TelegramService:
         """Upload a file to Telegram channel"""
         try:
             await self.client.connect()
+            await self.client.get_dialogs()
 
             # Upload file bytes
             uploaded = await self.client.upload_file(
@@ -205,6 +207,7 @@ class TelegramService:
         """Download a file by message ID"""
         try:
             await self.client.connect()
+            await self.client.get_dialogs()
 
             message = await self.client.get_messages(
                 channel_id,
@@ -234,6 +237,7 @@ class TelegramService:
         """Delete file messages from Telegram"""
         try:
             await self.client.connect()
+            await self.client.get_dialogs()
             await self.client.delete_messages(channel_id, message_ids)
             logger.info(f"✅ Deleted messages: {message_ids}")
             return True
