@@ -233,6 +233,8 @@ class TelegramService:
         self,
         message_id: int,
         channel_id: int,
+        offset: int = 0,
+        limit: int = None,
         chunk_size: int = 512 * 1024  # 512KB
     ):
         """Yield blocks of file data as they are downloaded from Telegram"""
@@ -250,6 +252,8 @@ class TelegramService:
 
             async for chunk in self.client.iter_download(
                 message.media,
+                offset=offset,
+                limit=limit,
                 request_size=chunk_size
             ):
                 yield chunk

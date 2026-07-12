@@ -3,7 +3,7 @@
 from fastapi import (
     APIRouter, Depends, HTTPException,
     UploadFile, File, BackgroundTasks,
-    Query
+    Query, Request
 )
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -327,6 +327,7 @@ async def get_upload_status(
 @router.get("/download/{file_id}")
 async def download_file(
     file_id: str,
+    request: Request,
     current_user: User = Depends(get_telegram_user),
     db: AsyncSession = Depends(get_db)
 ):
@@ -353,33 +354,86 @@ async def download_file(
         session_string=current_user.telegram_session
     )
 
-    async def file_stream():
+    # Parse range header: e.g. "bytes=0-1000", "bytes=0-", "bytes=-1000"
+    range_header = request.headers.get("range")
+    start = 0
+    end = file_record.size_bytes - 1
+    is_range = False
+
+    if range_header and range_header.startswith("bytes="):
+        is_range = True
         try:
-            if file_record.is_chunked:
-                # Download and yield chunks in order
-                for msg_id in sorted(file_record.telegram_message_ids):
+            parts = range_header.replace("bytes=", "").split("-")
+            if parts[0]:
+                start = int(parts[0])
+            if len(parts) > 1 and parts[1]:
+                end = int(parts[1])
+        except ValueError:
+            pass
+
+        # Bound checks
+        if start >= file_record.size_bytes:
+            raise HTTPException(
+                status_code=416,
+                detail=f"Requested range not satisfiable: {start} >= {file_record.size_bytes}"
+            )
+        if end >= file_record.size_bytes:
+            end = file_record.size_bytes - 1
+        if start > end:
+            start = end
+
+    async def file_stream(stream_start: int, stream_end: int):
+        try:
+            remaining = stream_end - stream_start + 1
+            current_pos = stream_start
+            chunk_size = settings.CHUNK_SIZE_BYTES
+
+            for i, msg_id in enumerate(file_record.telegram_message_ids):
+                if remaining <= 0:
+                    break
+
+                chunk_start = i * chunk_size if file_record.is_chunked else 0
+                chunk_end = (i + 1) * chunk_size - 1 if file_record.is_chunked else file_record.size_bytes - 1
+
+                # If current position is past this chunk, skip it
+                if current_pos > chunk_end:
+                    continue
+
+                # Determine overlap
+                overlap_start = max(current_pos, chunk_start)
+                overlap_end = min(stream_end, chunk_end)
+
+                if overlap_start <= overlap_end:
+                    offset_in_chunk = overlap_start - chunk_start
+                    limit_in_chunk = overlap_end - overlap_start + 1
+
                     async for block in tg.download_file_stream(
                         msg_id,
-                        current_user.telegram_channel_id
+                        current_user.telegram_channel_id,
+                        offset=offset_in_chunk,
+                        limit=limit_in_chunk
                     ):
                         yield block
-            else:
-                async for block in tg.download_file_stream(
-                    file_record.telegram_message_ids[0],
-                    current_user.telegram_channel_id
-                ):
-                    yield block
+
+                    current_pos = overlap_end + 1
+                    remaining -= limit_in_chunk
         finally:
             await tg.disconnect()
 
+    status_code = 206 if is_range else 200
+    headers = {
+        "Accept-Ranges": "bytes",
+        "Content-Length": str(end - start + 1),
+        "Content-Disposition": f'attachment; filename="{file_record.original_name}"',
+    }
+    if is_range:
+        headers["Content-Range"] = f"bytes {start}-{end}/{file_record.size_bytes}"
+
     return StreamingResponse(
-        file_stream(),
+        file_stream(start, end),
+        status_code=status_code,
         media_type=file_record.mime_type or "application/octet-stream",
-        headers={
-            "Content-Disposition":
-                f'attachment; filename="{file_record.original_name}"',
-            "Content-Length": str(file_record.size_bytes)
-        }
+        headers=headers
     )
 
 
