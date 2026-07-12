@@ -9,6 +9,7 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
 import '../../../features/files/models/file_model.dart';
 import '../../../core/network/dio_client.dart';
+import '../../../core/upload/secure_uploader.dart';
 
 class PdfViewerScreen extends StatefulWidget {
   final FileModel file;
@@ -41,22 +42,37 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
       final file = File(path);
 
       if (!await file.exists()) {
-        await DioClient.instance.dio.download(
-          url,
-          path,
-          onReceiveProgress: (received, total) {},
-        );
+        final isEncrypted = widget.file.name.startsWith('__enc__');
+        if (isEncrypted) {
+          final uploader = SecureUploader();
+          final bytes = await uploader.downloadFile(
+            fileId: widget.file.id,
+            fileName: widget.file.name,
+            isEncrypted: true,
+          );
+          await file.writeAsBytes(bytes);
+        } else {
+          await DioClient.instance.dio.download(
+            url,
+            path,
+            onReceiveProgress: (received, total) {},
+          );
+        }
       }
 
-      if (mounted) setState(() {
-        _localPath = path;
-        _loading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _localPath = path;
+          _loading = false;
+        });
+      }
     } catch (e) {
-      if (mounted) setState(() {
-        _error = e.toString();
-        _loading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _error = e.toString();
+          _loading = false;
+        });
+      }
     }
   }
 

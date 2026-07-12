@@ -7,6 +7,10 @@ import '../../../core/constants/app_text_styles.dart';
 import '../../../features/files/models/file_model.dart';
 import '../../../core/utils/file_utils.dart';
 
+import 'dart:io';
+import 'package:path_provider/path_provider.dart';
+import '../../../core/upload/secure_uploader.dart';
+
 class AudioPlayerScreen extends StatefulWidget {
   final FileModel file;
   const AudioPlayerScreen({super.key, required this.file});
@@ -26,9 +30,27 @@ class _AudioPlayerScreenState extends State<AudioPlayerScreen> {
   }
 
   Future<void> _initPlayer() async {
-    final url =
-      '${ApiConstants.baseUrl}${ApiConstants.filesDownload}/${widget.file.id}';
-    await _player.setUrl(url);
+    final isEncrypted = widget.file.name.startsWith('__enc__');
+    if (isEncrypted) {
+      final dir = await getTemporaryDirectory();
+      final path = '${dir.path}/${widget.file.id}.mp3';
+      final file = File(path);
+
+      if (!await file.exists()) {
+        final uploader = SecureUploader();
+        final bytes = await uploader.downloadFile(
+          fileId: widget.file.id,
+          fileName: widget.file.name,
+          isEncrypted: true,
+        );
+        await file.writeAsBytes(bytes);
+      }
+      await _player.setAudioSource(AudioSource.file(path));
+    } else {
+      final url =
+        '${ApiConstants.baseUrl}${ApiConstants.filesDownload}/${widget.file.id}';
+      await _player.setUrl(url);
+    }
     if (mounted) setState(() => _loading = false);
   }
 

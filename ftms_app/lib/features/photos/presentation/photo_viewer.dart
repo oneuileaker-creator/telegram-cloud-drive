@@ -8,6 +8,9 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
 import '../../../core/utils/date_utils.dart';
 import '../../../core/utils/file_utils.dart';
+import 'dart:io';
+import 'package:path_provider/path_provider.dart';
+import '../../../core/upload/secure_uploader.dart';
 import '../../../core/network/dio_client.dart';
 import '../../../features/files/models/file_model.dart';
 
@@ -80,11 +83,8 @@ class _PhotoViewerState extends State<PhotoViewer> {
             onPageChanged: (i) => setState(() => _current = i),
             builder: (ctx, i) {
               final f = widget.files[i];
-              final downloadUrl =
-                '${ApiConstants.baseUrl}${ApiConstants.filesDownload}/${f.id}'
-                '${DioClient.authToken != null ? "?token=${DioClient.authToken}" : ""}';
-              return PhotoViewGalleryPageOptions(
-                imageProvider: CachedNetworkImageProvider(downloadUrl),
+              return PhotoViewGalleryPageOptions.customChild(
+                child: DecryptedImageWidget(file: f),
                 heroAttributes: PhotoViewHeroAttributes(tag: 'photo_${f.id}'),
                 minScale: PhotoViewComputedScale.contained,
                 maxScale: PhotoViewComputedScale.covered * 4,
@@ -155,3 +155,104 @@ class _PhotoViewerState extends State<PhotoViewer> {
     );
   }
 }
+
+class DecryptedImageWidget extends StatefulWidget {
+  final FileModel file;
+  const DecryptedImageWidget({super.key, required this.file});
+
+  @override
+  State<DecryptedImageWidget> createState() => _DecryptedImageWidgetState();
+}
+
+class _DecryptedImageWidgetState extends State<DecryptedImageWidget> {
+  String? _localPath;
+  bool _loading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadImage();
+  }
+
+  @override
+  void didUpdateWidget(covariant DecryptedImageWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.file.id != widget.file.id) {
+      _loadImage();
+    }
+  }
+
+  Future<void> _loadImage() async {
+    final isEncrypted = widget.file.name.startsWith('__enc__');
+    if (!isEncrypted) {
+      if (mounted) {
+        setState(() {
+          _loading = false;
+        });
+      }
+      return;
+    }
+
+    try {
+      final dir = await getTemporaryDirectory();
+      final path = '${dir.path}/${widget.file.id}.png';
+      final file = File(path);
+
+      if (!await file.exists()) {
+        final uploader = SecureUploader();
+        final bytes = await uploader.downloadFile(
+          fileId: widget.file.id,
+          fileName: widget.file.name,
+          isEncrypted: true,
+        );
+        await file.writeAsBytes(bytes);
+      }
+
+      if (mounted) {
+        setState(() {
+          _localPath = path;
+          _loading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _error = e.toString();
+          _loading = false;
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading) {
+      return const Center(
+        child: CircularProgressIndicator(color: AppColors.primary),
+      );
+    }
+    if (_error != null) {
+      return Center(child: Text('Error: $_error'));
+    }
+
+    if (_localPath != null) {
+      return Image.file(File(_localPath!));
+    }
+
+    final downloadUrl =
+      '${ApiConstants.baseUrl}${ApiConstants.filesDownload}/${widget.file.id}'
+      '${DioClient.authToken != null ? "?token=${DioClient.authToken}" : ""}';
+    return CachedNetworkImage(
+      imageUrl: downloadUrl,
+      fit: BoxFit.contain,
+      placeholder: (_, __) => const Center(
+        child: CircularProgressIndicator(color: AppColors.primary),
+      ),
+      errorWidget: (_, __, ___) => const Center(
+        child: Icon(Icons.broken_image_rounded, color: Colors.white24, size: 48),
+      ),
+    );
+  }
+}
+

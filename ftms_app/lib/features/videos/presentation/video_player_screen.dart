@@ -8,6 +8,9 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
 import '../../../core/network/dio_client.dart';
 import '../../../features/files/models/file_model.dart';
+import 'dart:io';
+import 'package:path_provider/path_provider.dart';
+import '../../../core/upload/secure_uploader.dart';
 import '../../../core/utils/file_utils.dart';
 
 class VideoPlayerScreen extends StatefulWidget {
@@ -35,11 +38,29 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   }
 
   Future<void> _initPlayer() async {
-    final url =
-      '${ApiConstants.baseUrl}${ApiConstants.filesDownload}/${widget.file.id}'
-      '${DioClient.authToken != null ? "?token=${DioClient.authToken}" : ""}';
+    final isEncrypted = widget.file.name.startsWith('__enc__');
+    if (isEncrypted) {
+      final dir = await getTemporaryDirectory();
+      final path = '${dir.path}/${widget.file.id}.mp4';
+      final file = File(path);
 
-    _controller = VideoPlayerController.networkUrl(Uri.parse(url));
+      if (!await file.exists()) {
+        final uploader = SecureUploader();
+        final bytes = await uploader.downloadFile(
+          fileId: widget.file.id,
+          fileName: widget.file.name,
+          isEncrypted: true,
+        );
+        await file.writeAsBytes(bytes);
+      }
+      _controller = VideoPlayerController.file(file);
+    } else {
+      final url =
+        '${ApiConstants.baseUrl}${ApiConstants.filesDownload}/${widget.file.id}'
+        '${DioClient.authToken != null ? "?token=${DioClient.authToken}" : ""}';
+      _controller = VideoPlayerController.networkUrl(Uri.parse(url));
+    }
+
     await _controller!.initialize();
 
     _chewie = ChewieController(
