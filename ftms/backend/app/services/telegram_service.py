@@ -264,13 +264,17 @@ class TelegramService:
             if not self.client.is_connected():
                 await self.client.connect()
 
+            message = None
             try:
                 message = await self.client.get_messages(
                     PeerChannel(channel_id),
                     ids=message_id
                 )
-            except Exception:
-                logger.info("Channel entity not cached, fetching dialogs...")
+            except Exception as e:
+                logger.info(f"First get_messages attempt failed: {e}")
+
+            if not message:
+                logger.info("Channel entity or message not cached, fetching dialogs...")
                 await self.client.get_dialogs()
                 message = await self.client.get_messages(
                     PeerChannel(channel_id),
@@ -305,13 +309,17 @@ class TelegramService:
             if not self.client.is_connected():
                 await self.client.connect()
 
+            message = None
             try:
                 message = await self.client.get_messages(
                     PeerChannel(channel_id),
                     ids=message_id
                 )
-            except Exception:
-                logger.info("Channel entity not cached, fetching dialogs...")
+            except Exception as e:
+                logger.info(f"First get_messages stream attempt failed: {e}")
+
+            if not message:
+                logger.info("Channel entity or message not cached for stream, fetching dialogs...")
                 await self.client.get_dialogs()
                 message = await self.client.get_messages(
                     PeerChannel(channel_id),
