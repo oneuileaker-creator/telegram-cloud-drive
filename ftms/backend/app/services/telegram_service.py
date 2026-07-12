@@ -256,7 +256,7 @@ class TelegramService:
                 limit=limit,
                 request_size=chunk_size
             ):
-                yield chunk
+                yield bytes(chunk)
 
         except Exception as e:
             logger.error(f"Download stream error: {e}")
