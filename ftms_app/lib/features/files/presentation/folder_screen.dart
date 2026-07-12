@@ -44,7 +44,20 @@ class _FolderScreenState extends State<FolderScreen> {
   }
 
   Future<void> _load() async {
-    setState(() => _loading = true);
+    final cachedFolders = _repo.getCachedFolderTree(parentId: widget.folderId);
+    final cachedFiles = _repo.getCachedFiles(folderId: widget.folderId);
+    final hasCache = cachedFolders != null || cachedFiles != null;
+
+    if (hasCache) {
+      setState(() {
+        if (cachedFolders != null) _subFolders = cachedFolders;
+        if (cachedFiles != null) _files = cachedFiles;
+        _loading = false;
+      });
+    } else {
+      setState(() => _loading = true);
+    }
+
     try {
       final folders = await _repo.getFolderTree(parentId: widget.folderId);
       final files   = await _repo.getFiles(
@@ -59,7 +72,9 @@ class _FolderScreenState extends State<FolderScreen> {
         });
       }
     } catch (_) {
-      if (mounted) setState(() => _loading = false);
+      if (mounted && _files.isEmpty && _subFolders.isEmpty) {
+        setState(() => _loading = false);
+      }
     }
   }
 

@@ -45,7 +45,20 @@ class _PhotosScreenState extends State<PhotosScreen> {
   }
 
   Future<void> _load() async {
-    setState(() { _loading = true; _page = 1; });
+    final cachedFiles = _repo.getCachedFiles(fileType: 'image');
+    final hasCache = cachedFiles != null;
+
+    setState(() {
+      _page = 1;
+      if (!hasCache) {
+        _loading = true;
+      } else {
+        _photos = cachedFiles;
+        _hasMore = cachedFiles.length == 60;
+        _loading = false;
+      }
+    });
+
     try {
       final files = await _repo.getFiles(fileType: 'image', page: 1, limit: 60);
       if (mounted) setState(() {
@@ -54,7 +67,9 @@ class _PhotosScreenState extends State<PhotosScreen> {
         _hasMore = files.length == 60;
       });
     } catch (_) {
-      if (mounted) setState(() => _loading = false);
+      if (mounted && _photos.isEmpty) {
+        setState(() => _loading = false);
+      }
     }
   }
 

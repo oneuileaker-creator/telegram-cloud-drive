@@ -29,12 +29,25 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
   }
 
   Future<void> _load() async {
-    setState(() => _loading = true);
+    final cachedFiles = _repo.getCachedFiles(fileType: 'document');
+    final hasCache = cachedFiles != null;
+
+    if (hasCache) {
+      setState(() {
+        _docs = cachedFiles;
+        _loading = false;
+      });
+    } else {
+      setState(() => _loading = true);
+    }
+
     try {
       final files = await _repo.getFiles(fileType: 'document', limit: 100);
       if (mounted) setState(() { _docs = files; _loading = false; });
     } catch (_) {
-      if (mounted) setState(() => _loading = false);
+      if (mounted && _docs.isEmpty) {
+        setState(() => _loading = false);
+      }
     }
   }
 

@@ -17,6 +17,7 @@ void main() async {
 
   // Hive
   await Hive.initFlutter();
+  await Hive.openBox('ftms_cache');
 
   // Initialize background transfer service
   await BackgroundTransferService().initialize();

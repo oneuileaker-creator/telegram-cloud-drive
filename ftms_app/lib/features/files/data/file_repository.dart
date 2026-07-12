@@ -5,6 +5,8 @@ import '../../../core/network/api_exception.dart';
 import '../../../core/constants/api_constants.dart';
 import '../models/file_model.dart';
 import '../models/folder_model.dart';
+import '../../../core/services/cache_manager.dart';
+
 
 class FileRepository {
   final _dio = DioClient.instance.dio;
@@ -28,6 +30,10 @@ class FileRepository {
         },
       );
       final files = res.data['files'] as List;
+      if (page == 1) {
+        final cacheKey = 'files_list_${folderId ?? ""}_${fileType ?? ""}';
+        CacheManager.set(cacheKey, files);
+      }
       return files.map((f) => FileModel.fromJson(f)).toList();
     } on DioException catch (e) {
       throw ApiException.fromDioError(e);
@@ -41,6 +47,7 @@ class FileRepository {
         queryParameters: {'days': days, 'limit': 10},
       );
       final files = res.data['files'] as List;
+      CacheManager.set('recent_files', files);
       return files.map((f) => FileModel.fromJson(f)).toList();
     } on DioException catch (e) {
       throw ApiException.fromDioError(e);
@@ -50,6 +57,7 @@ class FileRepository {
   Future<Map<String, dynamic>> getStorageStats() async {
     try {
       final res = await _dio.get(ApiConstants.searchStats);
+      CacheManager.set('storage_stats', res.data);
       return res.data;
     } on DioException catch (e) {
       throw ApiException.fromDioError(e);
@@ -92,10 +100,48 @@ class FileRepository {
         },
       );
       final folders = res.data['folders'] as List;
+      final cacheKey = 'folder_tree_${parentId ?? ""}';
+      CacheManager.set(cacheKey, folders);
       return folders.map((f) => FolderModel.fromJson(f)).toList();
     } on DioException catch (e) {
       throw ApiException.fromDioError(e);
     }
+  }
+
+  // ── Cache Read Methods ─────────────────────────────────────
+
+  List<FileModel>? getCachedFiles({String? folderId, String? fileType}) {
+    final cacheKey = 'files_list_${folderId ?? ""}_${fileType ?? ""}';
+    final cached = CacheManager.get(cacheKey);
+    if (cached != null && cached is List) {
+      return cached.map((f) => FileModel.fromJson(Map<String, dynamic>.from(f))).toList();
+    }
+    return null;
+  }
+
+  List<FolderModel>? getCachedFolderTree({String? parentId}) {
+    final cacheKey = 'folder_tree_${parentId ?? ""}';
+    final cached = CacheManager.get(cacheKey);
+    if (cached != null && cached is List) {
+      return cached.map((f) => FolderModel.fromJson(Map<String, dynamic>.from(f))).toList();
+    }
+    return null;
+  }
+
+  List<FileModel>? getCachedRecentFiles() {
+    final cached = CacheManager.get('recent_files');
+    if (cached != null && cached is List) {
+      return cached.map((f) => FileModel.fromJson(Map<String, dynamic>.from(f))).toList();
+    }
+    return null;
+  }
+
+  Map<String, dynamic>? getCachedStorageStats() {
+    final cached = CacheManager.get('storage_stats');
+    if (cached != null && cached is Map) {
+      return Map<String, dynamic>.from(cached);
+    }
+    return null;
   }
 
   Future<FolderModel> createFolder({

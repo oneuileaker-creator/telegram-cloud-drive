@@ -28,12 +28,25 @@ class _AudioScreenState extends State<AudioScreen> {
   }
 
   Future<void> _load() async {
-    setState(() => _loading = true);
+    final cachedFiles = _repo.getCachedFiles(fileType: 'audio');
+    final hasCache = cachedFiles != null;
+
+    if (hasCache) {
+      setState(() {
+        _tracks = cachedFiles;
+        _loading = false;
+      });
+    } else {
+      setState(() => _loading = true);
+    }
+
     try {
       final files = await _repo.getFiles(fileType: 'audio', limit: 100);
       if (mounted) setState(() { _tracks = files; _loading = false; });
     } catch (_) {
-      if (mounted) setState(() => _loading = false);
+      if (mounted && _tracks.isEmpty) {
+        setState(() => _loading = false);
+      }
     }
   }
 

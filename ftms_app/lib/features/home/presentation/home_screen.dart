@@ -35,6 +35,18 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _loadData() async {
+    final cachedRecent = _fileRepo.getCachedRecentFiles();
+    final cachedStats = _fileRepo.getCachedStorageStats();
+    if (cachedRecent != null || cachedStats != null) {
+      if (mounted) {
+        setState(() {
+          if (cachedRecent != null) _recentFiles = cachedRecent;
+          if (cachedStats != null) _stats = cachedStats;
+          _loading = false;
+        });
+      }
+    }
+
     try {
       final recent = await _fileRepo.getRecentFiles();
       final stats  = await _fileRepo.getStorageStats();
@@ -46,7 +58,9 @@ class _HomeScreenState extends State<HomeScreen> {
         });
       }
     } catch (_) {
-      if (mounted) setState(() => _loading = false);
+      if (mounted && _recentFiles.isEmpty && _stats.isEmpty) {
+        setState(() => _loading = false);
+      }
     }
   }
 

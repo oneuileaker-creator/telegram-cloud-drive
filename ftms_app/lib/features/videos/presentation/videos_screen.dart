@@ -29,12 +29,25 @@ class _VideosScreenState extends State<VideosScreen> {
   }
 
   Future<void> _load() async {
-    setState(() => _loading = true);
+    final cachedFiles = _repo.getCachedFiles(fileType: 'video');
+    final hasCache = cachedFiles != null;
+
+    if (hasCache) {
+      setState(() {
+        _videos = cachedFiles;
+        _loading = false;
+      });
+    } else {
+      setState(() => _loading = true);
+    }
+
     try {
       final files = await _repo.getFiles(fileType: 'video', limit: 100);
       if (mounted) setState(() { _videos = files; _loading = false; });
     } catch (_) {
-      if (mounted) setState(() => _loading = false);
+      if (mounted && _videos.isEmpty) {
+        setState(() => _loading = false);
+      }
     }
   }
 

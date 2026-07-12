@@ -71,7 +71,24 @@ class _FilesScreenState extends State<FilesScreen> {
   }
 
   Future<void> _load() async {
-    setState(() { _loading = true; _page = 1; });
+    final cachedFolders = _repo.getCachedFolderTree();
+    final cachedFiles = _repo.getCachedFiles();
+    final hasCache = cachedFolders != null || cachedFiles != null;
+
+    setState(() {
+      _page = 1;
+      if (!hasCache) {
+        _loading = true;
+      } else {
+        if (cachedFolders != null) _folders = cachedFolders;
+        if (cachedFiles != null) {
+          _files = cachedFiles;
+          _hasMore = cachedFiles.length == 50;
+        }
+        _loading = false;
+      }
+    });
+
     try {
       final folders = await _repo.getFolderTree();
       final files   = await _repo.getFiles(page: 1, limit: 50);
@@ -84,7 +101,9 @@ class _FilesScreenState extends State<FilesScreen> {
         });
       }
     } catch (_) {
-      if (mounted) setState(() => _loading = false);
+      if (mounted && _files.isEmpty && _folders.isEmpty) {
+        setState(() => _loading = false);
+      }
     }
   }
 
