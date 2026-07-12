@@ -19,6 +19,8 @@ import 'widgets/file_grid_item.dart';
 import 'widgets/create_folder_sheet.dart';
 import 'widgets/file_options_sheet.dart';
 import 'widgets/upload_progress_sheet.dart';
+import '../../../core/services/background_transfer_service.dart';
+
 
 enum ViewMode { list, grid }
 enum SortBy { name, date, size, type }
@@ -160,6 +162,9 @@ class _FilesScreenState extends State<FilesScreen> {
   }
 
   Future<void> _uploadFile(_UploadTask task) async {
+    final service = BackgroundTransferService();
+    final notificationId = task.hashCode;
+    await service.startTransfer();
     try {
       final formData = FormData.fromMap({
         'file': await MultipartFile.fromFile(
@@ -171,17 +176,41 @@ class _FilesScreenState extends State<FilesScreen> {
         ApiConstants.filesUpload,
         data: formData,
         onSendProgress: (sent, total) {
-          if (total > 0 && mounted) {
-            setState(() => task.progress = sent / total);
+          if (total > 0) {
+            task.progress = sent / total;
+            service.showProgressNotification(
+              id: notificationId,
+              fileName: task.fileName,
+              progress: task.progress,
+              isUpload: true,
+            );
           }
         },
       );
+      task.done = true;
+      await service.showProgressNotification(
+        id: notificationId,
+        fileName: task.fileName,
+        progress: 1.0,
+        isUpload: true,
+      );
       if (mounted) {
-        setState(() => task.done = true);
+        setState(() {});
         _load();
       }
     } catch (e) {
-      if (mounted) setState(() => task.error = e.toString());
+      task.error = e.toString();
+      await service.showFailedNotification(
+        id: notificationId,
+        fileName: task.fileName,
+        error: e.toString(),
+        isUpload: true,
+      );
+      if (mounted) {
+        setState(() {});
+      }
+    } finally {
+      await service.stopTransfer();
     }
   }
 
@@ -220,6 +249,13 @@ class _FilesScreenState extends State<FilesScreen> {
           _load();
         },
         onOpen: () => _openFile(file),
+        onDownload: () {
+          BackgroundTransferService().downloadFile(
+            fileId: file.id,
+            fileName: file.name,
+            context: context,
+          );
+        },
       ),
     );
   }
@@ -541,12 +577,36 @@ class _FilesScreenState extends State<FilesScreen> {
 }
 
 // Upload task model
-class _UploadTask {
+class _UploadTask extends ChangeNotifier {
   final String fileName;
   final String filePath;
-  double progress = 0;
-  bool done = false;
-  String? error;
+  double _progress = 0;
+  bool _done = false;
+  String? _error;
+
+  double get progress => _progress;
+  set progress(double val) {
+    if (_progress != val) {
+      _progress = val;
+      notifyListeners();
+    }
+  }
+
+  bool get done => _done;
+  set done(bool val) {
+    if (_done != val) {
+      _done = val;
+      notifyListeners();
+    }
+  }
+
+  String? get error => _error;
+  set error(String? val) {
+    if (_error != val) {
+      _error = val;
+      notifyListeners();
+    }
+  }
 
   _UploadTask({required this.fileName, required this.filePath});
 }

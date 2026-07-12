@@ -6,6 +6,7 @@ import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_text_styles.dart';
 import '../../../../core/network/dio_client.dart';
 import '../../../../core/constants/api_constants.dart';
+import '../../../../core/services/background_transfer_service.dart';
 
 class UploadFAB extends StatefulWidget {
   final VoidCallback? onUploaded;
@@ -36,6 +37,10 @@ class _UploadFABState extends State<UploadFAB> {
       _progress = 0;
     });
 
+    final service = BackgroundTransferService();
+    final notificationId = file.path.hashCode;
+    await service.startTransfer();
+
     try {
       final formData = FormData.fromMap({
         'file': await MultipartFile.fromFile(
@@ -49,9 +54,25 @@ class _UploadFABState extends State<UploadFAB> {
         data: formData,
         onSendProgress: (sent, total) {
           if (total > 0) {
-            setState(() => _progress = sent / total);
+            final double currentProgress = sent / total;
+            if (mounted) {
+              setState(() => _progress = currentProgress);
+            }
+            service.showProgressNotification(
+              id: notificationId,
+              fileName: file.name,
+              progress: currentProgress,
+              isUpload: true,
+            );
           }
         },
+      );
+
+      await service.showProgressNotification(
+        id: notificationId,
+        fileName: file.name,
+        progress: 1.0,
+        isUpload: true,
       );
 
       if (mounted) {
@@ -64,6 +85,12 @@ class _UploadFABState extends State<UploadFAB> {
         widget.onUploaded?.call();
       }
     } catch (e) {
+      await service.showFailedNotification(
+        id: notificationId,
+        fileName: file.name,
+        error: e.toString(),
+        isUpload: true,
+      );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -73,6 +100,7 @@ class _UploadFABState extends State<UploadFAB> {
         );
       }
     } finally {
+      await service.stopTransfer();
       if (mounted) setState(() => _uploading = false);
     }
   }

@@ -10,12 +10,16 @@ import 'core/constants/app_constants.dart';
 import 'core/network/dio_client.dart';
 import 'features/auth/bloc/auth_bloc.dart';
 import 'features/auth/data/auth_repository.dart';
+import 'core/services/background_transfer_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // Hive
   await Hive.initFlutter();
+
+  // Initialize background transfer service
+  await BackgroundTransferService().initialize();
 
   // Pre-load auth token so media widgets don't get 401 on first render
   const _storage = FlutterSecureStorage();

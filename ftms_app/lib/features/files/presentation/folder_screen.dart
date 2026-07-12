@@ -15,6 +15,7 @@ import '../models/folder_model.dart';
 import 'widgets/file_card.dart';
 import 'widgets/folder_card.dart';
 import 'widgets/file_options_sheet.dart';
+import '../../../core/services/background_transfer_service.dart';
 
 class FolderScreen extends StatefulWidget {
   final String folderId;
@@ -66,18 +67,49 @@ class _FolderScreenState extends State<FolderScreen> {
     final result = await FilePicker.pickFiles(allowMultiple: true);
     if (result == null) return;
 
+    final service = BackgroundTransferService();
+
     for (final file in result.files) {
       if (file.path == null) continue;
-      final formData = FormData.fromMap({
-        'file': await MultipartFile.fromFile(
-          file.path!, filename: file.name,
-        ),
-        'folder_id': widget.folderId,
-      });
-      await DioClient.instance.dio.post(
-        ApiConstants.filesUpload,
-        data: formData,
-      );
+      final notificationId = file.path.hashCode;
+      await service.startTransfer();
+      try {
+        final formData = FormData.fromMap({
+          'file': await MultipartFile.fromFile(
+            file.path!, filename: file.name,
+          ),
+          'folder_id': widget.folderId,
+        });
+        await DioClient.instance.dio.post(
+          ApiConstants.filesUpload,
+          data: formData,
+          onSendProgress: (sent, total) {
+            if (total > 0) {
+              service.showProgressNotification(
+                id: notificationId,
+                fileName: file.name,
+                progress: sent / total,
+                isUpload: true,
+              );
+            }
+          },
+        );
+        await service.showProgressNotification(
+          id: notificationId,
+          fileName: file.name,
+          progress: 1.0,
+          isUpload: true,
+        );
+      } catch (e) {
+        await service.showFailedNotification(
+          id: notificationId,
+          fileName: file.name,
+          error: e.toString(),
+          isUpload: true,
+        );
+      } finally {
+        await service.stopTransfer();
+      }
     }
     _load();
   }
@@ -116,6 +148,13 @@ class _FolderScreenState extends State<FolderScreen> {
           _load();
         },
         onOpen: () => _openFile(file),
+        onDownload: () {
+          BackgroundTransferService().downloadFile(
+            fileId: file.id,
+            fileName: file.name,
+            context: context,
+          );
+        },
       ),
     );
   }

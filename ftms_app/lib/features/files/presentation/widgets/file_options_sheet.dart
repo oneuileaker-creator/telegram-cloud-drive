@@ -11,6 +11,7 @@ class FileOptionsSheet extends StatelessWidget {
   final VoidCallback onOpen;
   final VoidCallback onFavorite;
   final VoidCallback onDelete;
+  final VoidCallback onDownload;
 
   const FileOptionsSheet({
     super.key,
@@ -18,6 +19,7 @@ class FileOptionsSheet extends StatelessWidget {
     required this.onOpen,
     required this.onFavorite,
     required this.onDelete,
+    required this.onDownload,
   });
 
   @override
@@ -45,28 +47,27 @@ class FileOptionsSheet extends StatelessWidget {
             child: Row(
               children: [
                 Container(
-                  width: 52, height: 52,
+                  width: 48, height: 48,
                   decoration: BoxDecoration(
-                    color: color.withOpacity(0.15),
-                    borderRadius: BorderRadius.circular(14),
+                    color: color.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                  child: Icon(icon, color: color, size: 28),
+                  child: Icon(icon, color: color, size: 24),
                 ),
-                const SizedBox(width: 14),
+                const SizedBox(width: 16),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         file.name,
-                        style: AppTextStyles.titleLarge,
-                        maxLines: 2,
+                        style: AppTextStyles.titleMedium,
+                        maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        '${FileUtils.formatSize(file.sizeBytes)} • '
-                        '${FTMSDateUtils.formatDate(file.createdAt)}',
+                        FileUtils.formatSize(file.sizeBytes),
                         style: AppTextStyles.caption,
                       ),
                     ],
@@ -75,7 +76,8 @@ class FileOptionsSheet extends StatelessWidget {
               ],
             ),
           ),
-          const Divider(height: 24),
+          const SizedBox(height: 16),
+          const Divider(height: 1),
 
           // Options
           _Option(
@@ -96,7 +98,7 @@ class FileOptionsSheet extends StatelessWidget {
           _Option(
             icon: Icons.download_rounded,
             label: 'Download',
-            onTap: () { Navigator.pop(context); },
+            onTap: () { Navigator.pop(context); onDownload(); },
           ),
           _Option(
             icon: Icons.info_outline_rounded,

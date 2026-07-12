@@ -45,20 +45,16 @@ class _UploadProgressSheetState extends State<UploadProgressSheet> {
   }
 }
 
-class _UploadItem extends StatefulWidget {
+class _UploadItem extends StatelessWidget {
   final dynamic upload;
   const _UploadItem({required this.upload});
 
   @override
-  State<_UploadItem> createState() => _UploadItemState();
-}
-
-class _UploadItemState extends State<_UploadItem> {
-  @override
   Widget build(BuildContext context) {
-    final u = widget.upload;
-    return StatefulBuilder(
-      builder: (ctx, setState) {
+    final u = upload;
+    return AnimatedBuilder(
+      animation: u,
+      builder: (context, _) {
         return Padding(
           padding: const EdgeInsets.only(bottom: 14),
           child: Column(
