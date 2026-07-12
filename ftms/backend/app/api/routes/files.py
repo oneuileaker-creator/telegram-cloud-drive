@@ -358,17 +358,17 @@ async def download_file(
             if file_record.is_chunked:
                 # Download and yield chunks in order
                 for msg_id in sorted(file_record.telegram_message_ids):
-                    chunk = await tg.download_file(
+                    async for block in tg.download_file_stream(
                         msg_id,
                         current_user.telegram_channel_id
-                    )
-                    yield chunk
+                    ):
+                        yield block
             else:
-                file_data = await tg.download_file(
+                async for block in tg.download_file_stream(
                     file_record.telegram_message_ids[0],
                     current_user.telegram_channel_id
-                )
-                yield file_data
+                ):
+                    yield block
         finally:
             await tg.disconnect()
 

@@ -229,6 +229,35 @@ class TelegramService:
             logger.error(f"Download error: {e}")
             raise
 
+    async def download_file_stream(
+        self,
+        message_id: int,
+        channel_id: int,
+        chunk_size: int = 512 * 1024  # 512KB
+    ):
+        """Yield blocks of file data as they are downloaded from Telegram"""
+        try:
+            await self.client.connect()
+            await self.client.get_dialogs()
+
+            message = await self.client.get_messages(
+                channel_id,
+                ids=message_id
+            )
+
+            if not message:
+                raise ValueError(f"Message {message_id} not found")
+
+            async for chunk in self.client.iter_download(
+                message.media,
+                request_size=chunk_size
+            ):
+                yield chunk
+
+        except Exception as e:
+            logger.error(f"Download stream error: {e}")
+            raise
+
     async def delete_messages(
         self,
         message_ids: list[int],
