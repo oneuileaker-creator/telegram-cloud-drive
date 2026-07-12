@@ -159,10 +159,19 @@ class TelegramService:
     # ─── Channel Setup ────────────────────────────────────────
 
     async def setup_storage_channel(self) -> int:
-        """Create a private channel to use as storage"""
+        """Find an existing FTMS-Storage channel or create a new one"""
         try:
             if not self.client.is_connected():
                 await self.client.connect()
+
+            # Search if channel already exists
+            async for dialog in self.client.iter_dialogs():
+                if dialog.is_channel and dialog.name == FTMS_CHANNEL_NAME:
+                    logger.info(f"✅ Found existing storage channel: {dialog.name} ({dialog.id})")
+                    return dialog.id
+
+            # Create new channel if not found
+            logger.info(f"Creating new storage channel: {FTMS_CHANNEL_NAME}")
             result = await self.client(CreateChannelRequest(
                 title=FTMS_CHANNEL_NAME,
                 about="FTMS Cloud Storage - Do not delete",
@@ -175,7 +184,7 @@ class TelegramService:
             return channel_id
 
         except Exception as e:
-            logger.error(f"Channel creation error: {e}")
+            logger.error(f"Channel setup/creation error: {e}")
             raise
 
     async def get_or_create_channel(self, channel_id: int = None) -> int:
