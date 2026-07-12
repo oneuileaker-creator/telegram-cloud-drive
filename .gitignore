@@ -1,0 +1,40 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual Environments
+venv/
+.venv/
+env/
+.env/
+ftms/backend/venv/
+
+# Environment files
+.env
+ftms/backend/.env
+
+# Flutter / Dart build and tool artifacts
+ftms_app/.dart_tool/
+ftms_app/.flutter-plugins
+ftms_app/.flutter-plugins-dependencies
+ftms_app/.packages
+ftms_app/build/
+ftms_app/android/key.properties
+ftms_app/ios/Flutter/Flutter.podspec
+ftms_app/ios/Flutter/Generated.xcconfig
+ftms_app/ios/Flutter/flutter_export_environment.sh
+
+# IDEs and editors
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.swp
+.DS_Store
+
+# Log files
+*.log

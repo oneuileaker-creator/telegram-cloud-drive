@@ -1,0 +1,1665 @@
+﻿<USER_REQUEST>
+we are making unlimited cloud storagre system with telegram api : Phase 1: Foundation
+Complete Backend Setup
+Step 1: Project Setup
+Bash
+
+# Create project structure
+mkdir ftms && cd ftms
+mkdir backend && cd backend
+
+# Create virtual environment
+python -m venv venv
+
+# Activate it
+# Windows
+venv\Scripts\activate
+# Linux/Mac
+source venv/bin/activate
+requirements.txt
+txt
+
+# Core
+fastapi==0.109.0
+uvicorn[standard]==0.27.0
+python-multipart==0.0.6
+
+# Database
+sqlalchemy==2.0.25
+asyncpg==0.29.0
+alembic==1.13.1
+psycopg2-binary==2.9.9
+
+# Telegram
+telethon==1.34.0
+
+# Auth
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+bcrypt==4.1.2
+
+# Redis
+redis==5.0.1
+aioredis==2.0.1
+
+# Utilities
+python-dotenv==1.0.0
+pydantic==2.5.3
+pydantic-settings==2.1.0
+aiofiles==23.2.1
+python-magic==0.4.27
+
+# Dev
+pytest==7.4.4
+httpx==0.26.0
+Bash
+
+pip install -r requirements.txt
+Step 2: Project File Structure
+Bash
+
+# Create all folders and files
+backend/
+â”œâ”€â”€ app/
+â”‚   â”œâ”€â”€ __init__.py
+â”‚   â”œâ”€â”€ main.py
+â”‚   â”œâ”€â”€ config.py
+â”‚   â”œâ”€â”€ database/
+â”‚   â”‚   â”œâ”€â”€ __init__.py
+â”‚   â”‚   â”œâ”€â”€ connection.py
+â”‚   â”‚   â”œâ”€â”€ models.py
+â”‚   â”‚   â””â”€â”€ schemas.py
+â”‚   â”œâ”€â”€ services/
+â”‚   â”‚   â”œâ”€â”€ __init__.py
+â”‚   â”‚   â”œâ”€â”€ auth_service.py
+â”‚   â”‚   â””â”€â”€ telegram_service.py
+â”‚   â”œâ”€â”€ api/
+â”‚   â”‚   â”œâ”€â”€ __init__.py
+â”‚   â”‚   â”œâ”€â”€ middleware.py
+â”‚   â”‚   â””â”€â”€ routes/
+â”‚   â”‚       â”œâ”€â”€ __init__.py
+â”‚   â”‚       â”œâ”€â”€ auth.py
+â”‚   â”‚       â””â”€â”€ files.py
+â”‚   â””â”€â”€ utils/
+â”‚       â”œâ”€â”€ __init__.py
+â”‚       â””â”€â”€ helpers.py
+â”œâ”€â”€ alembic/
+â”œâ”€â”€ .env
+â”œâ”€â”€ .env.example
+â”œâ”€â”€ .gitignore
+â”œâ”€â”€ alembic.ini
+â”œâ”€â”€ requirements.txt
+â”œâ”€â”€ Dockerfile
+â””â”€â”€ render.yaml
+Bash
+
+# Run this to create all folders at once
+mkdir -p app/database app/services app/api/routes app/utils alembic
+touch app/__init__.py
+touch app/main.py app/config.py
+touch app/database/__init__.py app/database/connection.py
+touch app/database/models.py app/database/schemas.py
+touch app/services/__init__.py app/services/auth_service.py
+touch app/services/telegram_service.py
+touch app/api/__init__.py app/api/middleware.py
+touch app/api/routes/__init__.py app/api/routes/auth.py
+touch app/api/routes/files.py
+touch app/utils/__init__.py app/utils/helpers.py
+touch .env .env.example alembic.ini
+touch Dockerfile render.yaml
+Step 3: Environment Configuration
+.env.example
+env
+
+# App
+APP_NAME=FTMS
+APP_VERSION=1.0.0
+DEBUG=True
+SECRET_KEY=your-super-secret-key-change-this
+FRONTEND_URL=http://localhost:3000
+
+# Database
+DATABASE_URL=postgresql+asyncpg://user:password@localhost:5432/ftms
+SYNC_DATABASE_URL=postgresql://user:password@localhost:5432/ftms
+
+# Redis
+REDIS_URL=redis://localhost:6379
+
+# JWT
+JWT_SECRET=your-jwt-secret-change-this
+JWT_ALGORITHM=HS256
+ACCESS_TOKEN_EXPIRE_MINUTES=1440
+
+# Telegram
+TELEGRAM_API_ID=your-api-id
+TELEGRAM_API_HASH=your-api-hash
+
+# Chunk Settings
+CHUNK_SIZE_MB=500
+MAX_FILE_SIZE_GB=10
+.env
+env
+
+# Copy from .env.example and fill in your values
+APP_NAME=FTMS
+APP_VERSION=1.0.0
+DEBUG=True
+SECRET_KEY=change-this-to-random-string-in-production
+
+DATABASE_URL=postgresql+asyncpg://postgres:password@localhost:5432/ftms
+SYNC_DATABASE_URL=postgresql://postgres:password@localhost:5432/ftms
+
+REDIS_URL=redis://localhost:6379
+
+JWT_SECRET=change-this-jwt-secret-too
+JWT_ALGORITHM=HS256
+ACCESS_TOKEN_EXPIRE_MINUTES=1440
+
+TELEGRAM_API_ID=12345678
+TELEGRAM_API_HASH=abcdef1234567890abcdef1234567890
+
+CHUNK_SIZE_MB=500
+MAX_FILE_SIZE_GB=10
+Step 4: Config
+Python
+
+# app/config.py
+
+from pydantic_settings import BaseSettings
+from functools import lru_cache
+from typing import Optional
+
+
+class Settings(BaseSettings):
+    # App
+    APP_NAME: str = "FTMS"
+    APP_VERSION: str = "1.0.0"
+    DEBUG: bool = False
+    SECRET_KEY: str
+    FRONTEND_URL: str = "http://localhost:3000"
+
+    # Database
+    DATABASE_URL: str
+    SYNC_DATABASE_URL: str
+
+    # Redis
+    REDIS_URL: str = "redis://localhost:6379"
+
+    # JWT
+    JWT_SECRET: str
+    JWT_ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440  # 24 hours
+
+    # Telegram
+    TELEGRAM_API_ID: Optional[int] = None
+    TELEGRAM_API_HASH: Optional[str] = None
+
+    # Chunk Settings
+    CHUNK_SIZE_MB: int = 500
+    MAX_FILE_SIZE_GB: int = 10
+
+    @property
+    def CHUNK_SIZE_BYTES(self) -> int:
+        return self.CHUNK_SIZE_MB * 1024 * 1024
+
+    @property
+    def MAX_FILE_SIZE_BYTES(self) -> int:
+        return self.MAX_FILE_SIZE_GB * 1024 * 1024 * 1024
+
+    class Config:
+        env_file = ".env"
+        case_sensitive = True
+
+
+@lru_cache()
+def get_settings() -> Settings:
+    return Settings()
+
+
+settings = get_settings()
+Step 5: Database
+app/database/connection.py
+Python
+
+# app/database/connection.py
+
+from sqlalchemy.ext.asyncio import (
+    AsyncSession,
+    create_async_engine,
+    async_sessionmaker
+)
+from sqlalchemy.orm import DeclarativeBase
+from app.config import settings
+import logging
+
+logger = logging.getLogger(__name__)
+
+# Create async engine
+engine = create_async_engine(
+    settings.DATABASE_URL,
+    echo=settings.DEBUG,          # Log SQL queries in debug mode
+    pool_size=10,
+    max_overflow=20,
+    pool_pre_ping=True,           # Check connection health
+    pool_recycle=3600,            # Recycle connections every hour
+)
+
+# Session factory
+AsyncSessionLocal = async_sessionmaker(
+    engine,
+    class_=AsyncSession,
+    expire_on_commit=False,       # Don't expire after commit
+    autocommit=False,
+    autoflush=False,
+)
+
+
+class Base(DeclarativeBase):
+    pass
+
+
+async def get_db() -> AsyncSession:
+    """Dependency - get database session"""
+    async with AsyncSessionLocal() as session:
+        try:
+            yield session
+            await session.commit()
+        except Exception as e:
+            await session.rollback()
+            logger.error(f"Database error: {e}")
+            raise
+        finally:
+            await session.close()
+
+
+async def init_db():
+    """Create all tables on startup"""
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    logger.info("âœ… Database tables created")
+
+
+async def close_db():
+    """Close database connections on shutdown"""
+    await engine.dispose()
+    logger.info("âœ… Database connections closed")
+app/database/models.py
+Python
+
+# app/database/models.py
+
+from sqlalchemy import (
+    Column, String, Boolean, BigInteger,
+    Integer, Text, DateTime, ForeignKey,
+    JSON, ARRAY
+)
+from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import relationship
+from sqlalchemy.sql import func
+from app.database.connection import Base
+import uuid
+
+
+class User(Base):
+    __tablename__ = "users"
+
+    id = Column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4
+    )
+    email = Column(String(255), unique=True, nullable=False, index=True)
+    username = Column(String(100), unique=True, nullable=False)
+    password_hash = Column(String(255), nullable=False)
+
+    # Telegram credentials (stored encrypted)
+    telegram_session = Column(Text, nullable=True)          # Telethon session string
+    telegram_api_id = Column(String(50), nullable=True)
+    telegram_api_hash = Column(String(100), nullable=True)
+    telegram_channel_id = Column(BigInteger, nullable=True) # Private storage channel
+    telegram_phone = Column(String(20), nullable=True)
+    is_telegram_connected = Column(Boolean, default=False)
+
+    # Storage stats
+    storage_used_bytes = Column(BigInteger, default=0)
+    total_files = Column(Integer, default=0)
+
+    # Account status
+    is_active = Column(Boolean, default=True)
+    is_verified = Column(Boolean, default=False)
+
+    # Timestamps
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    last_login = Column(DateTime(timezone=True), nullable=True)
+
+    # Relationships
+    folders = relationship(
+        "Folder",
+        back_populates="user",
+        cascade="all, delete-orphan"
+    )
+    files = relationship(
+        "File",
+        back_populates="user",
+        cascade="all, delete-orphan"
+    )
+
+    def __repr__(self):
+        return f"<User {self.email}>"
+
+
+class Folder(Base):
+    __tablename__ = "folders"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True
+    )
+    name = Column(String(255), nullable=False)
+    parent_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("folders.id", ondelete="CASCADE"),
+        nullable=True    # NULL means root folder
+    )
+    path = Column(Text, nullable=False)   # e.g. /Photos/Vacation/2024
+    color = Column(String(7), default="#4ECDC4")   # Hex color for UI
+    icon = Column(String(50), default="folder")
+
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    # Relationships
+    user = relationship("User", back_populates="folders")
+    files = relationship(
+        "File",
+        back_populates="folder",
+        cascade="all, delete-orphan"
+    )
+    children = relationship(
+        "Folder",
+        backref="parent",
+        foreign_keys=[parent_id]
+    )
+
+    def __repr__(self):
+        return f"<Folder {self.path}>"
+
+
+class File(Base):
+    __tablename__ = "files"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True
+    )
+    folder_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("folders.id", ondelete="SET NULL"),
+        nullable=True
+    )
+
+    # File info
+    original_name = Column(String(500), nullable=False)
+    display_name = Column(String(500), nullable=True)
+    file_type = Column(String(50), index=True)     # image/video/audio/document/etc
+    mime_type = Column(String(100))
+    extension = Column(String(20))
+    size_bytes = Column(BigInteger, default=0)
+
+    # Chunking info
+    is_chunked = Column(Boolean, default=False)
+    total_chunks = Column(Integer, default=1)
+    telegram_message_ids = Column(ARRAY(BigInteger), default=[])
+    thumbnail_message_id = Column(BigInteger, nullable=True)
+
+    # Metadata (EXIF, duration, dimensions, etc)
+    file_metadata = Column(JSON, default={})
+
+    # Status
+    upload_status = Column(
+        String(20),
+        default="pending"
+    )
+    # pending / uploading / complete / failed / deleting
+
+    # Search & Organization
+    tags = Column(ARRAY(String), default=[])
+    is_favorite = Column(Boolean, default=False)
+    is_encrypted = Column(Boolean, default=False)
+
+    # Checksum for integrity
+    checksum = Column(String(64), nullable=True)   # SHA256
+
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    # Relationships
+    user = relationship("User", back_populates="files")
+    folder = relationship("Folder", back_populates="files")
+    chunks = relationship(
+        "FileChunk",
+        back_populates="file",
+        cascade="all, delete-orphan"
+    )
+
+    def __repr__(self):
+        return f"<File {self.original_name}>"
+
+
+class FileChunk(Base):
+    __tablename__ = "file_chunks"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    file_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("files.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True
+    )
+    chunk_index = Column(Integer, nullable=False)
+    chunk_size = Column(BigInteger)
+    telegram_message_id = Column(BigInteger, nullable=True)
+    upload_status = Column(String(20), default="pending")
+    checksum = Column(String(64))    # SHA256 of this chunk
+
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    # Relationships
+    file = relationship("File", back_populates="chunks")
+
+    def __repr__(self):
+        return f"<FileChunk {self.file_id} chunk {self.chunk_index}>"
+
+
+class TelegramSession(Base):
+    """Store multiple Telegram sessions per user"""
+    __tablename__ = "telegram_sessions"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False
+    )
+    session_name = Column(String(100), default="default")
+    session_string = Column(Text, nullable=False)     # Encrypted session
+    phone_number = Column(String(20))
+    is_active = Column(Boolean, default=True)
+
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    last_used = Column(DateTime(timezone=True), onupdate=func.now())
+app/database/schemas.py
+Python
+
+# app/database/schemas.py
+
+from pydantic import BaseModel, EmailStr, Field
+from typing import Optional, List
+from datetime import datetime
+from uuid import UUID
+from enum import Enum
+
+
+class FileStatus(str, Enum):
+    PENDING = "pending"
+    UPLOADING = "uploading"
+    COMPLETE = "complete"
+    FAILED = "failed"
+
+
+class FileType(str, Enum):
+    IMAGE = "image"
+    VIDEO = "video"
+    AUDIO = "audio"
+    DOCUMENT = "document"
+    CODE = "code"
+    ARCHIVE = "archive"
+    OTHER = "other"
+
+
+# â”€â”€â”€ Auth Schemas â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+class UserRegister(BaseModel):
+    email: EmailStr
+    username: str = Field(..., min_length=3, max_length=50)
+    password: str = Field(..., min_length=8)
+
+
+class UserLogin(BaseModel):
+    email: EmailStr
+    password: str
+
+
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    user: "UserResponse"
+
+
+class UserResponse(BaseModel):
+    id: UUID
+    email: str
+    username: str
+    is_telegram_connected: bool
+    storage_used_bytes: int
+    total_files: int
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+# â”€â”€â”€ Telegram Schemas â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+class TelegramConnect(BaseModel):
+    api_id: int
+    api_hash: str
+    phone_number: str
+
+
+class TelegramVerify(BaseModel):
+    phone_number: str
+    code: str
+    phone_code_hash: str
+
+
+class TelegramConnectResponse(BaseModel):
+    status: str
+    message: str
+    phone_code_hash: Optional[str] = None
+    requires_2fa: bool = False
+
+
+# â”€â”€â”€ Folder Schemas â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+class FolderCreate(BaseModel):
+    name: str = Field(..., min_length=1, max_length=255)
+    parent_id: Optional[UUID] = None
+    color: str = "#4ECDC4"
+    icon: str = "folder"
+
+
+class FolderResponse(BaseModel):
+    id: UUID
+    name: str
+    parent_id: Optional[UUID]
+    path: str
+    color: str
+    icon: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+# â”€â”€â”€ File Schemas â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+class FileResponse(BaseModel):
+    id: UUID
+    original_name: str
+    display_name: Optional[str]
+    file_type: str
+    mime_type: Optional[str]
+    extension: Optional[str]
+    size_bytes: int
+    is_chunked: bool
+    total_chunks: int
+    upload_status: str
+    tags: List[str]
+    is_favorite: bool
+    file_metadata: dict
+    folder_id: Optional[UUID]
+    created_at: datetime
+    updated_at: Optional[datetime]
+
+    class Config:
+        from_attributes = True
+
+
+class FileListResponse(BaseModel):
+    files: List[FileResponse]
+    total: int
+    page: int
+    limit: int
+    has_more: bool
+
+
+class UploadResponse(BaseModel):
+    file_id: UUID
+    status: str
+    message: str
+
+
+class FileUpdate(BaseModel):
+    display_name: Optional[str] = None
+    tags: Optional[List[str]] = None
+    is_favorite: Optional[bool] = None
+    folder_id: Optional[UUID] = None
+Step 6: Auth Service
+Python
+
+# app/services/auth_service.py
+
+from datetime import datetime, timedelta
+from typing import Optional
+from uuid import UUID
+
+from jose import JWTError, jwt
+from passlib.context import CryptContext
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
+
+from app.config import settings
+from app.database.models import User
+from app.database.schemas import UserRegister
+import logging
+
+logger = logging.getLogger(__name__)
+
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+
+class AuthService:
+
+    # â”€â”€â”€ Password Utils â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+    @staticmethod
+    def hash_password(password: str) -> str:
+        return pwd_context.hash(password)
+
+    @staticmethod
+    def verify_password(plain: str, hashed: str) -> bool:
+        return pwd_context.verify(plain, hashed)
+
+    # â”€â”€â”€ JWT Utils â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+    @staticmethod
+    def create_access_token(
+        user_id: str,
+        email: str,
+        expires_delta: Optional[timedelta] = None
+    ) -> str:
+        expire = datetime.utcnow() + (
+            expires_delta or
+            timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+        )
+        payload = {
+            "sub": str(user_id),
+            "email": email,
+            "exp": expire,
+            "iat": datetime.utcnow(),
+            "type": "access"
+        }
+        return jwt.encode(
+            payload,
+            settings.JWT_SECRET,
+            algorithm=settings.JWT_ALGORITHM
+        )
+
+    @staticmethod
+    def decode_token(token: str) -> dict:
+        try:
+            payload = jwt.decode(
+                token,
+                settings.JWT_SECRET,
+                algorithms=[settings.JWT_ALGORITHM]
+            )
+            return payload
+        except JWTError as e:
+            logger.warning(f"JWT decode error: {e}")
+            raise
+
+    # â”€â”€â”€ User Operations â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+    @staticmethod
+    async def create_user(
+        db: AsyncSession,
+        data: UserRegister
+    ) -> User:
+        # Check if email exists
+        result = await db.execute(
+            select(User).where(User.email == data.email)
+        )
+        if result.scalar_one_or_none():
+            raise ValueError("Email already registered")
+
+        # Check if username exists
+        result = await db.execute(
+            select(User).where(User.username == data.username)
+        )
+        if result.scalar_one_or_none():
+            raise ValueError("Username already taken")
+
+        user = User(
+            email=data.email,
+            username=data.username,
+            password_hash=AuthService.hash_password(data.password)
+        )
+        db.add(user)
+        await db.commit()
+        await db.refresh(user)
+
+        logger.info(f"âœ… New user created: {user.email}")
+        return user
+
+    @staticmethod
+    async def authenticate_user(
+        db: AsyncSession,
+        email: str,
+        password: str
+    ) -> Optional[User]:
+        result = await db.execute(
+            select(User).where(User.email == email)
+        )
+        user = result.scalar_one_or_none()
+
+        if not user:
+            return None
+        if not AuthService.verify_password(password, user.password_hash):
+            return None
+
+        # Update last login
+        user.last_login = datetime.utcnow()
+        await db.commit()
+
+        return user
+
+    @staticmethod
+    async def get_user_by_id(
+        db: AsyncSession,
+        user_id: UUID
+    ) -> Optional[User]:
+        result = await db.execute(
+            select(User).where(User.id == user_id)
+        )
+        return result.scalar_one_or_none()
+Step 7: Telegram Service
+Python
+
+# app/services/telegram_service.py
+
+from telethon import TelegramClient
+from telethon.sessions import StringSession
+from telethon.errors import (
+    SessionPasswordNeededError,
+    PhoneCodeInvalidError,
+    PhoneCodeExpiredError,
+    ApiIdInvalidError,
+    FloodWaitError
+)
+from telethon.tl.functions.channels import CreateChannelRequest
+from telethon.tl.functions.messages import ExportChatInviteRequest
+
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, update
+
+from app.database.models import User
+from app.config import settings
+import logging
+import asyncio
+
+logger = logging.getLogger(__name__)
+
+FTMS_CHANNEL_NAME = "FTMS-Storage"
+
+
+class TelegramService:
+
+    def __init__(
+        self,
+        api_id: int,
+        api_hash: str,
+        session_string: str = ""
+    ):
+        self.api_id = api_id
+        self.api_hash = api_hash
+        self.session_string = session_string
+        self.client = TelegramClient(
+            StringSession(session_string),
+            api_id,
+            api_hash
+        )
+
+    # â”€â”€â”€ Auth Flow â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+    async def send_code(self, phone_number: str) -> dict:
+        """Step 1: Send OTP to phone"""
+        try:
+            await self.client.connect()
+            result = await self.client.send_code_request(phone_number)
+
+            logger.info(f"âœ… Code sent to {phone_number}")
+            return {
+                "phone_code_hash": result.phone_code_hash,
+                "status": "code_sent"
+            }
+        except ApiIdInvalidError:
+            raise ValueError("Invalid API ID or API Hash")
+        except FloodWaitError as e:
+            raise ValueError(f"Too many attempts. Wait {e.seconds} seconds")
+        except Exception as e:
+            logger.error(f"Send code error: {e}")
+            raise
+
+    async def verify_code(
+        self,
+        phone_number: str,
+        code: str,
+        phone_code_hash: str
+    ) -> dict:
+        """Step 2: Verify OTP and get session"""
+        try:
+            await self.client.connect()
+            await self.client.sign_in(
+                phone=phone_number,
+                code=code,
+                phone_code_hash=phone_code_hash
+            )
+
+            # Get session string to store in DB
+            session_string = self.client.session.save()
+
+            logger.info("âœ… Telegram auth successful")
+            return {
+                "session_string": session_string,
+                "status": "authenticated"
+            }
+        except SessionPasswordNeededError:
+            return {
+                "status": "2fa_required",
+                "session_string": None
+            }
+        except PhoneCodeInvalidError:
+            raise ValueError("Invalid verification code")
+        except PhoneCodeExpiredError:
+            raise ValueError("Code expired. Request a new one")
+
+    async def verify_2fa(
+        self,
+        password: str
+    ) -> dict:
+        """Step 2b: Handle 2FA if enabled"""
+        try:
+            await self.client.connect()
+            await self.client.sign_in(password=password)
+            session_string = self.client.session.save()
+            return {
+                "session_string": session_string,
+                "status": "authenticated"
+            }
+        except Exception as e:
+            raise ValueError(f"2FA failed: {e}")
+
+    async def disconnect(self):
+        if self.client.is_connected():
+            await self.client.disconnect()
+
+    # â”€â”€â”€ Channel Setup â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+    async def setup_storage_channel(self) -> int:
+        """Create a private channel to use as storage"""
+        try:
+            await self.client.connect()
+            result = await self.client(CreateChannelRequest(
+                title=FTMS_CHANNEL_NAME,
+                about="FTMS Cloud Storage - Do not delete",
+                megagroup=False,  # Regular channel not supergroup
+            ))
+            channel = result.chats[0]
+            channel_id = channel.id
+
+            logger.info(f"âœ… Storage channel created: {channel_id}")
+            return channel_id
+
+        except Exception as e:
+            logger.error(f"Channel creation error: {e}")
+            raise
+
+    async def get_or_create_channel(self, channel_id: int = None) -> int:
+        """Get existing channel or create new one"""
+        await self.client.connect()
+
+        if channel_id:
+            try:
+                # Verify channel still exists
+                await self.client.get_entity(channel_id)
+                return channel_id
+            except Exception:
+                logger.warning("Channel not found, creating new one")
+
+        return await self.setup_storage_channel()
+
+    # â”€â”€â”€ File Operations â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+    async def upload_file(
+        self,
+        file_data: bytes,
+        file_name: str,
+        channel_id: int,
+        caption: str = "",
+        progress_callback=None
+    ) -> int:
+        """Upload a file to Telegram channel"""
+        try:
+            await self.client.connect()
+
+            # Upload file bytes
+            uploaded = await self.client.upload_file(
+                file_data,
+                file_name=file_name,
+                progress_callback=progress_callback
+            )
+
+            # Send to channel
+            message = await self.client.send_file(
+                entity=channel_id,
+                file=uploaded,
+                caption=caption,
+                silent=True,
+                force_document=True     # Always as document not media
+            )
+
+            logger.info(f"âœ… Uploaded {file_name} â†’ msg_id: {message.id}")
+            return message.id
+
+        except FloodWaitError as e:
+            logger.warning(f"Flood wait: {e.seconds}s")
+            await asyncio.sleep(e.seconds)
+            return await self.upload_file(
+                file_data, file_name, channel_id, caption
+            )
+        except Exception as e:
+            logger.error(f"Upload error: {e}")
+            raise
+
+    async def download_file(
+        self,
+        message_id: int,
+        channel_id: int,
+        progress_callback=None
+    ) -> bytes:
+        """Download a file by message ID"""
+        try:
+            await self.client.connect()
+
+            message = await self.client.get_messages(
+                channel_id,
+                ids=message_id
+            )
+
+            if not message:
+                raise ValueError(f"Message {message_id} not found")
+
+            file_data = await self.client.download_media(
+                message,
+                file=bytes,
+                progress_callback=progress_callback
+            )
+
+            return file_data
+
+        except Exception as e:
+            logger.error(f"Download error: {e}")
+            raise
+
+    async def delete_messages(
+        self,
+        message_ids: list[int],
+        channel_id: int
+    ) -> bool:
+        """Delete file messages from Telegram"""
+        try:
+            await self.client.connect()
+            await self.client.delete_messages(channel_id, message_ids)
+            logger.info(f"âœ… Deleted messages: {message_ids}")
+            return True
+        except Exception as e:
+            logger.error(f"Delete error: {e}")
+            return False
+
+    async def upload_thumbnail(
+        self,
+        thumbnail_data: bytes,
+        channel_id: int,
+        file_name: str
+    ) -> int:
+        """Upload thumbnail image"""
+        return await self.upload_file(
+            thumbnail_data,
+            f"thumb_{file_name}.jpg",
+            channel_id,
+            caption="__thumbnail__"
+        )
+
+    # â”€â”€â”€ Helper Factory â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+    @classmethod
+    async def from_user(cls, user: User) -> "TelegramService":
+        """Create TelegramService from a User model"""
+        if not user.is_telegram_connected:
+            raise ValueError("Telegram not connected for this user")
+
+        return cls(
+            api_id=int(user.telegram_api_id),
+            api_hash=user.telegram_api_hash,
+            session_string=user.telegram_session
+        )
+Step 8: Auth Middleware
+Python
+
+# app/api/middleware.py
+
+from fastapi import Depends, HTTPException, status
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from sqlalchemy.ext.asyncio import AsyncSession
+from jose import JWTError
+
+from app.database.connection import get_db
+from app.database.models import User
+from app.services.auth_service import AuthService
+import logging
+
+logger = logging.getLogger(__name__)
+
+security = HTTPBearer()
+
+
+async def get_current_user(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    db: AsyncSession = Depends(get_db)
+) -> User:
+    """Extract and validate current user from JWT token"""
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Invalid or expired token",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+
+    try:
+        payload = AuthService.decode_token(credentials.credentials)
+        user_id: str = payload.get("sub")
+        if user_id is None:
+            raise credentials_exception
+    except JWTError:
+        raise credentials_exception
+
+    user = await AuthService.get_user_by_id(db, user_id)
+    if user is None:
+        raise credentials_exception
+    if not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Account is deactivated"
+        )
+
+    return user
+
+
+async def get_telegram_user(
+    current_user: User = Depends(get_current_user)
+) -> User:
+    """Ensure user has Telegram connected"""
+    if not current_user.is_telegram_connected:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Telegram account not connected. Please connect first."
+        )
+    return current_user
+Step 9: API Routes
+app/api/routes/auth.py
+Python
+
+# app/api/routes/auth.py
+
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, update
+
+from app.database.connection import get_db
+from app.database.models import User
+from app.database.schemas import (
+    UserRegister, UserLogin, TokenResponse,
+    UserResponse, TelegramConnect,
+    TelegramVerify, TelegramConnectResponse
+)
+from app.services.auth_service import AuthService
+from app.services.telegram_service import TelegramService
+from app.api.middleware import get_current_user
+import logging
+
+router = APIRouter(prefix="/api/auth", tags=["Authentication"])
+logger = logging.getLogger(__name__)
+
+
+@router.post(
+    "/register",
+    response_model=TokenResponse,
+    status_code=status.HTTP_201_CREATED
+)
+async def register(
+    data: UserRegister,
+    db: AsyncSession = Depends(get_db)
+):
+    """Register a new FTMS account"""
+    try:
+        user = await AuthService.create_user(db, data)
+        token = AuthService.create_access_token(user.id, user.email)
+
+        return TokenResponse(
+            access_token=token,
+            user=UserResponse.model_validate(user)
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+
+
+@router.post("/login", response_model=TokenResponse)
+async def login(
+    data: UserLogin,
+    db: AsyncSession = Depends(get_db)
+):
+    """Login to FTMS"""
+    user = await AuthService.authenticate_user(db, data.email, data.password)
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid email or password"
+        )
+
+    token = AuthService.create_access_token(user.id, user.email)
+    return TokenResponse(
+        access_token=token,
+        user=UserResponse.model_validate(user)
+    )
+
+
+@router.get("/me", response_model=UserResponse)
+async def get_me(current_user: User = Depends(get_current_user)):
+    """Get current user profile"""
+    return UserResponse.model_validate(current_user)
+
+
+# â”€â”€â”€ Telegram Auth Flow â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+@router.post("/telegram/connect", response_model=TelegramConnectResponse)
+async def telegram_connect(
+    data: TelegramConnect,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Step 1: Start Telegram auth - sends OTP to phone
+    """
+    try:
+        service = TelegramService(
+            api_id=data.api_id,
+            api_hash=data.api_hash
+        )
+        result = await service.send_code(data.phone_number)
+
+        # Temporarily store credentials (not yet verified)
+        await db.execute(
+            update(User)
+            .where(User.id == current_user.id)
+            .values(
+                telegram_api_id=str(data.api_id),
+                telegram_api_hash=data.api_hash,
+                telegram_phone=data.phone_number
+            )
+        )
+        await db.commit()
+
+        return TelegramConnectResponse(
+            status="code_sent",
+            message=f"Verification code sent to {data.phone_number}",
+            phone_code_hash=result["phone_code_hash"]
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    finally:
+        await service.disconnect()
+
+
+@router.post("/telegram/verify", response_model=TelegramConnectResponse)
+async def telegram_verify(
+    data: TelegramVerify,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Step 2: Verify OTP and complete Telegram connection
+    """
+    if not current_user.telegram_api_id:
+        raise HTTPException(
+            status_code=400,
+            detail="Start connection first via /telegram/connect"
+        )
+
+    try:
+        service = TelegramService(
+            api_id=int(current_user.telegram_api_id),
+            api_hash=current_user.telegram_api_hash
+        )
+
+        result = await service.verify_code(
+            phone_number=data.phone_number,
+            code=data.code,
+            phone_code_hash=data.phone_code_hash
+        )
+
+        if result["status"] == "2fa_required":
+            return TelegramConnectResponse(
+                status="2fa_required",
+                message="2FA password required",
+                requires_2fa=True
+            )
+
+        # Create storage channel
+        service2 = TelegramService(
+            api_id=int(current_user.telegram_api_id),
+            api_hash=current_user.telegram_api_hash,
+            session_string=result["session_string"]
+        )
+        channel_id = await service2.setup_storage_channel()
+
+        # Save everything to DB
+        await db.execute(
+            update(User)
+            .where(User.id == current_user.id)
+            .values(
+                telegram_session=result["session_string"],
+                telegram_channel_id=channel_id,
+                is_telegram_connected=True
+            )
+        )
+        await db.commit()
+
+        logger.info(f"âœ… User {current_user.email} connected Telegram")
+        return TelegramConnectResponse(
+            status="connected",
+            message="Telegram connected successfully! Storage ready."
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    finally:
+        await service.disconnect()
+
+
+@router.delete("/telegram/disconnect")
+async def telegram_disconnect(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Disconnect Telegram from FTMS account"""
+    await db.execute(
+        update(User)
+        .where(User.id == current_user.id)
+        .values(
+            telegram_session=None,
+            telegram_api_id=None,
+            telegram_api_hash=None,
+            telegram_channel_id=None,
+            is_telegram_connected=False
+        )
+    )
+    await db.commit()
+    return {"message": "Telegram disconnected"}
+app/api/routes/files.py
+Python
+
+# app/api/routes/files.py
+
+from fastapi import (
+    APIRouter, Depends, HTTPException,
+    UploadFile, File, BackgroundTasks,
+    Query
+)
+from fastapi.responses import StreamingResponse
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, update, func, delete
+from typing import Optional
+import io
+import hashlib
+import logging
+
+from app.database.connection import get_db
+from app.database.models import User, File as FileModel, FileChunk, Folder
+from app.database.schemas import (
+    FileResponse, FileListResponse,
+    UploadResponse, FileUpdate
+)
+from app.services.telegram_service import TelegramService
+from app.api.middleware import get_current_user, get_telegram_user
+from app.config import settings
+from app.utils.helpers import (
+    split_into_chunks,
+    detect_file_type,
+    format_file_size
+)
+import uuid
+
+router = APIRouter(prefix="/api/files", tags=["Files"])
+logger = logging.getLogger(__name__)
+
+
+# â”€â”€â”€ Background Upload Task â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+async def process_upload(
+    file_data: bytes,
+    file_record_id: str,
+    user: User,
+    db_url: str
+):
+    """Background task: upload file chunks to Telegram"""
+    from app.database.connection import AsyncSessionLocal
+    from sqlalchemy import update as sa_update
+
+    async with AsyncSessionLocal() as db:
+        try:
+            # Get fresh file record
+            result = await db.execute(
+                select(FileModel).where(FileModel.id == file_record_id)
+            )
+            file_record = result.scalar_one_or_none()
+            if not file_record:
+                return
+
+            # Init Telegram service
+            tg = TelegramService(
+                api_id=int(user.telegram_api_id),
+                api_hash=user.telegram_api_hash,
+                session_string=user.telegram_session
+            )
+
+            channel_id = user.telegram_channel_id
+            message_ids = []
+
+            # Split if needed
+            if len(file_data) > settings.CHUNK_SIZE_BYTES:
+                chunks = split_into_chunks(file_data, settings.CHUNK_SIZE_BYTES)
+                file_record.is_chunked = True
+                file_record.total_chunks = len(chunks)
+
+                for index, chunk in enumerate(chunks):
+                    # Create chunk record
+                    chunk_record = FileChunk(
+                        file_id=file_record.id,
+                        chunk_index=index,
+                        chunk_size=len(chunk),
+                        upload_status="uploading",
+                        checksum=hashlib.sha256(chunk).hexdigest()
+                    )
+                    db.add(chunk_record)
+                    await db.commit()
+
+                    # Upload chunk
+                    msg_id = await tg.upload_file(
+                        chunk,
+                        f"{file_record.id}_chunk_{index}.bin",
+                        channel_id,
+                        caption=f"__chunk_{index}_of_{len(chunks)}__"
+                    )
+
+                    message_ids.append(msg_id)
+                    chunk_record.telegram_message_id = msg_id
+                    chunk_record.upload_status = "complete"
+                    await db.commit()
+
+            else:
+                # Single file upload
+                msg_id = await tg.upload_file(
+                    file_data,
+                    file_record.original_name,
+                    channel_id,
+                    caption=f"__file__{file_record.id}__"
+                )
+                message_ids.append(msg_id)
+
+            # Update file record
+            await db.execute(
+                sa_update(FileModel)
+                .where(FileModel.id == file_record.id)
+                .values(
+                    telegram_message_ids=message_ids,
+                    upload_status="complete"
+                )
+            )
+
+            # Update user storage stats
+            await db.execute(
+                sa_update(User)
+                .where(User.id == user.id)
+                .values(
+                    storage_used_bytes=User.storage_used_bytes + len(file_data),
+                    total_files=User.total_files + 1
+                )
+            )
+
+            await db.commit()
+            logger.info(f"âœ… Upload complete: {file_record.original_name}")
+
+        except Exception as e:
+            logger.error(f"Upload failed: {e}")
+            await db.execute(
+                sa_update(FileModel)
+                .where(FileModel.id == file_record_id)
+                .values(upload_status="failed")
+            )
+            await db.commit()
+        finally:
+            await tg.disconnect()
+
+
+# â”€â”€â”€ Routes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+@router.post("/upload", response_model=UploadResponse)
+async def upload_file(
+    background_tasks: BackgroundTasks,
+    file: UploadFile = File(...),
+    folder_id: Optional[str] = None,
+    current_user: User = Depends(get_telegram_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Upload a file to FTMS (Telegram storage)"""
+
+    # Read file
+    file_data = await file.read()
+    file_size = len(file_data)
+
+    # Check size limit
+    if file_size > settings.MAX_FILE_SIZE_BYTES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"File too large. Max: {settings.MAX_FILE_SIZE_GB}GB"
+        )
+
+    # Detect file type
+    type_info = detect_file_type(file_data, file.filename)
+
+    # Calculate checksum
+    checksum = hashlib.sha256(file_data).hexdigest()
+
+    # Create file record
+    file_record = FileModel(
+        user_id=current_user.id,
+        folder_id=folder_id,
+        original_name=file.filename,
+        file_type=type_info["category"],
+        mime_type=type_info["mime_type"],
+        extension=type_info["extension"],
+        size_bytes=file_size,
+        is_chunked=file_size > settings.CHUNK_SIZE_BYTES,
+        total_chunks=(
+            (file_size // settings.CHUNK_SIZE_BYTES) + 1
+            if file_size > settings.CHUNK_SIZE_BYTES else 1
+        ),
+        upload_status="uploading",
+        checksum=checksum
+    )
+    db.add(file_record)
+    await db.commit()
+    await db.refresh(file_record)
+
+    # Queue upload in background
+    background_tasks.add_task(
+        process_upload,
+        file_data,
+        str(file_record.id),
+        current_user,
+        settings.DATABASE_URL
+    )
+
+    return UploadResponse(
+        file_id=file_record.id,
+        status="uploading",
+        message=f"Upload started for '{file.filename}'"
+    )
+
+
+@router.get("/list", response_model=FileListResponse)
+async def list_files(
+    folder_id: Optional[str] = None,
+    file_type: Optional[str] = None,
+    search: Optional[str] = None,
+    is_favorite: Optional[bool] = None,
+    page: int = Query(default=1, ge=1),
+    limit: int = Query(default=50, ge=1, le=100),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """List files with filters and pagination"""
+    query = select(FileModel).where(
+        FileModel.user_id == current_user.id,
+        FileModel.upload_status == "complete"
+    )
+
+    # Apply filters
+    if folder_id:
+        query = query.where(FileModel.folder_id == folder_id)
+    if file_type:
+        query = query.where(FileModel.file_type == file_type)
+    if is_favorite is not None:
+        query = query.where(FileModel.is_favorite == is_favorite)
+    if search:
+        query = query.where(
+            FileModel.original_name.ilike(f"%{search}%")
+        )
+
+    # Count total
+    count_query = select(func.count()).select_from(query.subquery())
+    total = await db.scalar(count_query)
+
+    # Paginate
+    offset = (page - 1) * limit
+    query = query.order_by(FileModel.created_at.desc())
+    query = query.offset(offset).limit(limit)
+
+    result = await db.execute(query)
+    files = result.scalars().all()
+
+    return FileListResponse(
+        files=[FileResponse.model_validate(f) for f in files],
+        total=total,
+        page=page,
+        limit=limit,
+        has_more=(offset + limit) < total
+    )
+
+
+@router.get("/status/{file_id}")
+async def get_upload_status(
+    file_id: str,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Check upload status of a file"""
+    result = await db.execute(
+        select(FileModel).where(
+            FileModel.id == file_id,
+            FileModel.user_id == current_user.id
+        )
+    )
+    file = result.scalar_one_or_none()
+    if not file:
+        raise HTTPException(status_code=404, detail="File not found")
+
+    return {
+        "file_id": file_id,
+        "status": file.upload_status,
+        "total_chunks": file.total_chunks,
+        "is_chunked": file.is_chunked
+    }
+
+
+@router.get("/download/{file_id}")
+async def download_file(
+    file_id: str,
+    current_user: User = Depends(get_telegram_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Download a file from Telegram storage"""
+    result = await db.execute(
+        select(FileModel).where(
+            FileModel.id == file_id,
+            FileModel.user_id == current_user.id,
+            FileModel.upload_status == "complete"
+        )
+    )
+    file_record = result.scalar_one_or_none()
+    if not file_record:
+        raise HTTPException(status_code=404, detail="File not found")
+
+    tg = TelegramService(
+        api_id=int(current_user.telegram_api_id),
+        api_hash=current_user.telegram_api_hash,
+        session_string=current_user.telegram_session
+    )
+
+    async def file_stream():
+        try:
+            if file_record.is_chunked:
+                # Download and yield chunks in order
+                for msg_id in sorted(file_record.telegram_message_ids):
+                    chunk = await tg.download_file(
+                        msg_id,
+                        current_user.telegram_channel_id
+                    )
+                    yield chunk
+            else:
+                file_data = await tg.download_file(
+                    file_record.telegram_message_ids[0],
+                    current_user.telegram_channel_id
+                )
+                yield file_data
+        finally:
+            await tg.disconnect()
+
+    return StreamingResponse(
+        file_stream(),
+        media_type=file_record.mime_type or "application/octet-stream",
+        headers={
+            "Content-Disposition":
+                f'attachment; filename="{file_record.original_name}"',
+            "Content-Length": str(file_record.size_bytes)
+        }
+    )
+
+
+@router.patch("/{file_id}", response_model=FileResponse)
+async def update_file(
+    file_id: str,
+    data: FileUpdat
+<truncated 9747 bytes>
+
+NOTE: The output was truncated because it was too long. Use a more targeted query or a smaller range to get the information you need.
