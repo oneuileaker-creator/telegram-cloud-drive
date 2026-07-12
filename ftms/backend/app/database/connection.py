@@ -51,6 +51,8 @@ async def get_db() -> AsyncSession:
             await session.close()
 
 
+from urllib.parse import urlparse
+
 async def init_db():
     """Create all tables on startup with retry logic"""
     max_retries = 5
@@ -62,11 +64,17 @@ async def init_db():
             logger.info("✅ Database tables created successfully")
             return
         except Exception as e:
+            try:
+                parsed = urlparse(settings.DATABASE_URL)
+                host_info = f"{parsed.hostname}:{parsed.port}" if parsed.port else parsed.hostname
+            except Exception:
+                host_info = "unknown"
+
             if attempt == max_retries:
-                logger.error(f"❌ Failed to connect to database after {max_retries} attempts: {e}")
+                logger.error(f"❌ Failed to connect to database host '{host_info}' after {max_retries} attempts: {e}")
                 raise e
             logger.warning(
-                f"⚠️ Database connection attempt {attempt}/{max_retries} failed: {e}. "
+                f"⚠️ Database connection attempt {attempt}/{max_retries} failed for host '{host_info}': {e}. "
                 f"Retrying in {backoff} seconds..."
             )
             await asyncio.sleep(backoff)
