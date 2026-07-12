@@ -142,7 +142,6 @@ class TelegramService:
     async def get_or_create_channel(self, channel_id: int = None) -> int:
         """Get existing channel or create new one"""
         await self.client.connect()
-        await self.client.get_dialogs()
 
         if channel_id:
             try:
@@ -150,7 +149,13 @@ class TelegramService:
                 await self.client.get_entity(channel_id)
                 return channel_id
             except Exception:
-                logger.warning("Channel not found, creating new one")
+                try:
+                    logger.info("Channel entity not cached, fetching dialogs...")
+                    await self.client.get_dialogs()
+                    await self.client.get_entity(channel_id)
+                    return channel_id
+                except Exception:
+                    logger.warning("Channel not found, creating new one")
 
         return await self.setup_storage_channel()
 
@@ -167,7 +172,6 @@ class TelegramService:
         """Upload a file to Telegram channel"""
         try:
             await self.client.connect()
-            await self.client.get_dialogs()
 
             # Upload file bytes
             uploaded = await self.client.upload_file(
@@ -177,13 +181,24 @@ class TelegramService:
             )
 
             # Send to channel
-            message = await self.client.send_file(
-                entity=channel_id,
-                file=uploaded,
-                caption=caption,
-                silent=True,
-                force_document=True     # Always as document not media
-            )
+            try:
+                message = await self.client.send_file(
+                    entity=channel_id,
+                    file=uploaded,
+                    caption=caption,
+                    silent=True,
+                    force_document=True     # Always as document not media
+                )
+            except Exception:
+                logger.info("Channel entity not cached, fetching dialogs...")
+                await self.client.get_dialogs()
+                message = await self.client.send_file(
+                    entity=channel_id,
+                    file=uploaded,
+                    caption=caption,
+                    silent=True,
+                    force_document=True
+                )
 
             logger.info(f"✅ Uploaded {file_name} → msg_id: {message.id}")
             return message.id
@@ -207,12 +222,19 @@ class TelegramService:
         """Download a file by message ID"""
         try:
             await self.client.connect()
-            await self.client.get_dialogs()
 
-            message = await self.client.get_messages(
-                channel_id,
-                ids=message_id
-            )
+            try:
+                message = await self.client.get_messages(
+                    channel_id,
+                    ids=message_id
+                )
+            except Exception:
+                logger.info("Channel entity not cached, fetching dialogs...")
+                await self.client.get_dialogs()
+                message = await self.client.get_messages(
+                    channel_id,
+                    ids=message_id
+                )
 
             if not message:
                 raise ValueError(f"Message {message_id} not found")
@@ -240,12 +262,19 @@ class TelegramService:
         """Yield blocks of file data as they are downloaded from Telegram"""
         try:
             await self.client.connect()
-            await self.client.get_dialogs()
 
-            message = await self.client.get_messages(
-                channel_id,
-                ids=message_id
-            )
+            try:
+                message = await self.client.get_messages(
+                    channel_id,
+                    ids=message_id
+                )
+            except Exception:
+                logger.info("Channel entity not cached, fetching dialogs...")
+                await self.client.get_dialogs()
+                message = await self.client.get_messages(
+                    channel_id,
+                    ids=message_id
+                )
 
             if not message:
                 raise ValueError(f"Message {message_id} not found")
@@ -270,8 +299,12 @@ class TelegramService:
         """Delete file messages from Telegram"""
         try:
             await self.client.connect()
-            await self.client.get_dialogs()
-            await self.client.delete_messages(channel_id, message_ids)
+            try:
+                await self.client.delete_messages(channel_id, message_ids)
+            except Exception:
+                logger.info("Channel entity not cached, fetching dialogs...")
+                await self.client.get_dialogs()
+                await self.client.delete_messages(channel_id, message_ids)
             logger.info(f"✅ Deleted messages: {message_ids}")
             return True
         except Exception as e:
