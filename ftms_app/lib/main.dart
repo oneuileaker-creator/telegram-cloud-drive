@@ -11,13 +11,17 @@ import 'core/network/dio_client.dart';
 import 'features/auth/bloc/auth_bloc.dart';
 import 'features/auth/data/auth_repository.dart';
 import 'core/services/background_transfer_service.dart';
+import 'core/cache/cache_service.dart';
+import 'core/network/connectivity_service.dart';
+import 'features/backup/backup_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Hive
-  await Hive.initFlutter();
-  await Hive.openBox('ftms_cache');
+  // Initialize Services
+  await CacheService.init();
+  await BackupService.initBox();
+  ConnectivityService.instance.init();
 
   // Initialize background transfer service
   await BackgroundTransferService().initialize();

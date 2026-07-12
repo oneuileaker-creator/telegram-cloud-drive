@@ -16,6 +16,8 @@ import 'widgets/file_card.dart';
 import 'widgets/folder_card.dart';
 import 'widgets/file_options_sheet.dart';
 import '../../../core/services/background_transfer_service.dart';
+import '../../sharing/share_sheet.dart';
+
 
 class FolderScreen extends StatefulWidget {
   final String folderId;
@@ -168,6 +170,17 @@ class _FolderScreenState extends State<FolderScreen> {
             fileId: file.id,
             fileName: file.name,
             context: context,
+          );
+        },
+        onShare: () {
+          showModalBottomSheet(
+            context: context,
+            isScrollControlled: true,
+            backgroundColor: AppColors.bgCard,
+            shape: const RoundedRectangleBorder(
+              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+            ),
+            builder: (_) => ShareSheet(file: file),
           );
         },
       ),

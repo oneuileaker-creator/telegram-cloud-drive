@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
 from app.database.connection import init_db, close_db
-from app.api.routes import auth, files, folders, media, search
+from app.api.routes import auth, files, folders, media, search, sharing
 import logging
 
 # Setup logging
@@ -49,6 +49,7 @@ app.include_router(files.router)
 app.include_router(folders.router)
 app.include_router(media.router)
 app.include_router(search.router)
+app.include_router(sharing.router)
 
 
 @app.get("/")

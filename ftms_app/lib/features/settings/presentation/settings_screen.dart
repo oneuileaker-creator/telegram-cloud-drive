@@ -116,6 +116,20 @@ class SettingsScreen extends StatelessWidget {
           // App Settings
           _SectionTitle('App'),
           _SettingTile(
+            icon: Icons.cloud_upload_rounded,
+            iconColor: AppColors.success,
+            title: 'Auto Backup',
+            subtitle: 'Backup local photos & videos',
+            onTap: () => context.go('/settings/backup'),
+          ),
+          _SettingTile(
+            icon: Icons.lock_rounded,
+            iconColor: AppColors.codeColor,
+            title: 'Encryption',
+            subtitle: 'End-to-end local encryption',
+            onTap: () => context.go('/settings/encryption'),
+          ),
+          _SettingTile(
             icon: Icons.dark_mode_rounded,
             iconColor: AppColors.primary,
             title: 'Dark Mode',

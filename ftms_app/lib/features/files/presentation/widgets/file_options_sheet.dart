@@ -12,6 +12,7 @@ class FileOptionsSheet extends StatelessWidget {
   final VoidCallback onFavorite;
   final VoidCallback onDelete;
   final VoidCallback onDownload;
+  final VoidCallback onShare;
 
   const FileOptionsSheet({
     super.key,
@@ -20,6 +21,7 @@ class FileOptionsSheet extends StatelessWidget {
     required this.onFavorite,
     required this.onDelete,
     required this.onDownload,
+    required this.onShare,
   });
 
   @override
@@ -99,6 +101,11 @@ class FileOptionsSheet extends StatelessWidget {
             icon: Icons.download_rounded,
             label: 'Download',
             onTap: () { Navigator.pop(context); onDownload(); },
+          ),
+          _Option(
+            icon: Icons.share_rounded,
+            label: 'Share Link',
+            onTap: () { Navigator.pop(context); onShare(); },
           ),
           _Option(
             icon: Icons.info_outline_rounded,

@@ -18,6 +18,8 @@ import '../../features/documents/presentation/documents_screen.dart';
 import '../../features/documents/presentation/pdf_viewer_screen.dart';
 import '../../features/search/presentation/search_screen.dart';
 import '../../features/settings/presentation/settings_screen.dart';
+import '../../features/backup/backup_screen.dart';
+import '../../features/encryption/encryption_screen.dart';
 import '../../shared/widgets/ftms_shell.dart';
 import '../constants/app_constants.dart';
 import '../../features/files/models/file_model.dart';
@@ -83,6 +85,16 @@ final appRouter = GoRouter(
         GoRoute(
           path: '/settings',
           builder: (ctx, state) => const SettingsScreen(),
+          routes: [
+            GoRoute(
+              path: 'backup',
+              builder: (ctx, state) => const BackupScreen(),
+            ),
+            GoRoute(
+              path: 'encryption',
+              builder: (ctx, state) => const EncryptionScreen(),
+            ),
+          ],
         ),
       ],
     ),

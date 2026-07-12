@@ -2,7 +2,8 @@
 import 'package:flutter/material.dart';
 import '../../core/utils/platform_utils.dart';
 import 'responsive_layout.dart';
-import 'ftms_bottom_nav.dart'; // existing bottom nav
+import 'ftms_bottom_nav.dart';
+import '../../shared/widgets/offline_banner.dart';
 
 class FTMSShell extends StatelessWidget {
   final Widget child;
@@ -10,9 +11,11 @@ class FTMSShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ResponsiveLayout(
-      mobile: _MobileShell(child: child),
-      desktop: DesktopShell(child: child),
+    return OfflineBanner(
+      child: ResponsiveLayout(
+        mobile: _MobileShell(child: child),
+        desktop: DesktopShell(child: child),
+      ),
     );
   }
 }

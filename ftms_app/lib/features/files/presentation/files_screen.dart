@@ -20,6 +20,8 @@ import 'widgets/create_folder_sheet.dart';
 import 'widgets/file_options_sheet.dart';
 import 'widgets/upload_progress_sheet.dart';
 import '../../../core/services/background_transfer_service.dart';
+import '../../sharing/share_sheet.dart';
+
 
 
 enum ViewMode { list, grid }
@@ -273,6 +275,17 @@ class _FilesScreenState extends State<FilesScreen> {
             fileId: file.id,
             fileName: file.name,
             context: context,
+          );
+        },
+        onShare: () {
+          showModalBottomSheet(
+            context: context,
+            isScrollControlled: true,
+            backgroundColor: AppColors.bgCard,
+            shape: const RoundedRectangleBorder(
+              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+            ),
+            builder: (_) => ShareSheet(file: file),
           );
         },
       ),
