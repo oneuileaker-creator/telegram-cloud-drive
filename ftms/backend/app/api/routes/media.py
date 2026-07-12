@@ -14,6 +14,11 @@ from app.api.middleware import get_current_user, get_telegram_user
 
 router = APIRouter(prefix="/api/media", tags=["Media"])
 
+# ─── In-Memory Thumbnail Cache ────────────────────────────────────────────────
+# Thumbnails are tiny JPEGs that never change once uploaded.
+# Caching them here saves a full Telegram round-trip on every repeated load.
+_thumb_cache: dict[str, bytes] = {}  # file_id -> jpeg bytes
+
 
 @router.get("/photos", response_model=FileListResponse)
 async def get_photos(
@@ -99,6 +104,15 @@ async def get_thumbnail(
     if not file_record or not file_record.thumbnail_message_id:
         return Response(status_code=404)
 
+    # ── Serve from in-memory cache if available ────────────────
+    cached = _thumb_cache.get(file_id)
+    if cached:
+        return Response(
+            content=cached,
+            media_type="image/jpeg",
+            headers={"Cache-Control": "max-age=604800, immutable"},
+        )
+
     tg = await TelegramService.get_pooled(
         api_id=int(current_user.telegram_api_id),
         api_hash=current_user.telegram_api_hash,
@@ -110,10 +124,12 @@ async def get_thumbnail(
             file_record.thumbnail_message_id,
             current_user.telegram_channel_id
         )
+        if thumb_data:
+            _thumb_cache[file_id] = thumb_data  # populate cache
         return Response(
             content=thumb_data,
             media_type="image/jpeg",
-            headers={"Cache-Control": "max-age=86400"}
+            headers={"Cache-Control": "max-age=604800, immutable"},
         )
     finally:
         await tg.disconnect()
