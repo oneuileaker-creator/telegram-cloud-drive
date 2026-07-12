@@ -52,7 +52,7 @@ class AuthService:
         }
         return jwt.encode(
             payload,
-            settings.SECRET_KEY, # Note: using Settings.SECRET_KEY or Settings.JWT_SECRET. The Step 6 used settings.JWT_SECRET. Let's make sure we match Step 6 exactly. Let's use Settings.JWT_SECRET.
+            settings.JWT_SECRET,
             algorithm=settings.JWT_ALGORITHM
         )
 
