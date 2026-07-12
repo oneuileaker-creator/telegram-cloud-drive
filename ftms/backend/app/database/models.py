@@ -91,10 +91,15 @@ class Folder(Base):
         back_populates="folder",
         cascade="all, delete-orphan"
     )
+    parent = relationship(
+        "Folder",
+        remote_side=[id],
+        back_populates="children"
+    )
     children = relationship(
         "Folder",
-        backref="parent",
-        foreign_keys=[parent_id]
+        back_populates="parent",
+        cascade="all, delete-orphan"
     )
 
     def __repr__(self):
