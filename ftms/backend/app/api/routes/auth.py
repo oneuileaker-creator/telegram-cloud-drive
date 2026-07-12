@@ -157,13 +157,14 @@ async def telegram_verify(
             session_string=result["session_string"]
         )
         channel_id = await service2.setup_storage_channel()
+        final_session = service2.client.session.save()
 
         # Save everything to DB
         await db.execute(
             update(User)
             .where(User.id == current_user.id)
             .values(
-                telegram_session=result["session_string"],
+                telegram_session=final_session,
                 telegram_channel_id=channel_id,
                 is_telegram_connected=True
             )
