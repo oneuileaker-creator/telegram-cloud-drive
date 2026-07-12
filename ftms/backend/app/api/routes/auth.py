@@ -107,7 +107,8 @@ async def telegram_connect(
             message=f"Verification code sent to {data.phone_number}",
             phone_code_hash=result["phone_code_hash"]
         )
-    except ValueError as e:
+    except Exception as e:
+        logger.error(f"Telegram connect error: {e}")
         raise HTTPException(status_code=400, detail=str(e))
     finally:
         await service.disconnect()
@@ -172,7 +173,8 @@ async def telegram_verify(
             status="connected",
             message="Telegram connected successfully! Storage ready."
         )
-    except ValueError as e:
+    except Exception as e:
+        logger.error(f"Telegram verify error: {e}")
         raise HTTPException(status_code=400, detail=str(e))
     finally:
         await service.disconnect()
