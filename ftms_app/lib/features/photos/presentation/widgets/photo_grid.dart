@@ -4,6 +4,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import '../../../../core/constants/api_constants.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/network/dio_client.dart';
 import '../../../../features/files/models/file_model.dart';
 
 class PhotoGrid extends StatelessWidget {
@@ -33,7 +34,8 @@ class PhotoGrid extends StatelessWidget {
           tag: 'photo_${photos[i].id}',
           child: CachedNetworkImage(
             imageUrl: '${ApiConstants.baseUrl}'
-                      '${ApiConstants.thumbnail}/${photos[i].id}',
+                      '${ApiConstants.thumbnail}/${photos[i].id}'
+                      '${DioClient.authToken != null ? "?token=${DioClient.authToken}" : ""}',
             fit: BoxFit.cover,
             placeholder: (_, __) => Container(
               height: 120,

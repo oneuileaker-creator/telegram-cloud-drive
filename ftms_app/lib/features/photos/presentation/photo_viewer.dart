@@ -8,6 +8,7 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
 import '../../../core/utils/date_utils.dart';
 import '../../../core/utils/file_utils.dart';
+import '../../../core/network/dio_client.dart';
 import '../../../features/files/models/file_model.dart';
 
 class PhotoViewer extends StatefulWidget {
@@ -80,7 +81,8 @@ class _PhotoViewerState extends State<PhotoViewer> {
             builder: (ctx, i) {
               final f = widget.files[i];
               final downloadUrl =
-                '${ApiConstants.baseUrl}${ApiConstants.filesDownload}/${f.id}';
+                '${ApiConstants.baseUrl}${ApiConstants.filesDownload}/${f.id}'
+                '${DioClient.authToken != null ? "?token=${DioClient.authToken}" : ""}';
               return PhotoViewGalleryPageOptions(
                 imageProvider: CachedNetworkImageProvider(downloadUrl),
                 heroAttributes: PhotoViewHeroAttributes(tag: 'photo_${f.id}'),

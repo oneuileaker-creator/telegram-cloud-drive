@@ -5,6 +5,7 @@ import '../../../../core/constants/api_constants.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_text_styles.dart';
 import '../../../../core/utils/file_utils.dart';
+import '../../../../core/network/dio_client.dart';
 import '../../models/file_model.dart';
 
 class FileGridItem extends StatelessWidget {
@@ -45,7 +46,8 @@ class FileGridItem extends StatelessWidget {
                 child: file.fileType == 'image'
                   ? CachedNetworkImage(
                       imageUrl: '${ApiConstants.baseUrl}'
-                                '${ApiConstants.thumbnail}/${file.id}',
+                                '${ApiConstants.thumbnail}/${file.id}'
+                                '${DioClient.authToken != null ? "?token=${DioClient.authToken}" : ""}',
                       fit: BoxFit.cover,
                       placeholder: (_, __) => Container(
                         color: color.withOpacity(0.1),

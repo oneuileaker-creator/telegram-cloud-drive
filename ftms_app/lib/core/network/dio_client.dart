@@ -9,6 +9,8 @@ class DioClient {
   static DioClient? _instance;
   late final Dio _dio;
   final _storage = const FlutterSecureStorage();
+  
+  static String? authToken;
 
   DioClient._() {
     _dio = Dio(
@@ -51,6 +53,7 @@ class _AuthInterceptor extends Interceptor {
     RequestInterceptorHandler handler,
   ) async {
     final token = await _storage.read(key: AppConstants.tokenKey);
+    DioClient.authToken = token;
     if (token != null) {
       options.headers['Authorization'] = 'Bearer $token';
     }
@@ -61,6 +64,7 @@ class _AuthInterceptor extends Interceptor {
   void onError(DioException err, ErrorInterceptorHandler handler) {
     if (err.response?.statusCode == 401) {
       // Token expired - clear and redirect to login
+      DioClient.authToken = null;
       _storage.delete(key: AppConstants.tokenKey);
     }
     handler.next(err);

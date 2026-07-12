@@ -47,10 +47,8 @@ class FileCard extends StatelessWidget {
               child: file.fileType == 'image'
                 ? CachedNetworkImage(
                     imageUrl: '${ApiConstants.baseUrl}'
-                              '${ApiConstants.thumbnail}/${file.id}',
-                    httpHeaders: {
-                      'Authorization': 'Bearer token', // handled by interceptor
-                    },
+                              '${ApiConstants.thumbnail}/${file.id}'
+                              '${DioClient.authToken != null ? "?token=${DioClient.authToken}" : ""}',
                     width: 56, height: 56,
                     fit: BoxFit.cover,
                     placeholder: (_, __) => _IconFallback(color: color, icon: icon),

@@ -6,6 +6,7 @@ import 'package:chewie/chewie.dart';
 import '../../../core/constants/api_constants.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
+import '../../../core/network/dio_client.dart';
 import '../../../features/files/models/file_model.dart';
 import '../../../core/utils/file_utils.dart';
 
@@ -35,7 +36,8 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
 
   Future<void> _initPlayer() async {
     final url =
-      '${ApiConstants.baseUrl}${ApiConstants.filesDownload}/${widget.file.id}';
+      '${ApiConstants.baseUrl}${ApiConstants.filesDownload}/${widget.file.id}'
+      '${DioClient.authToken != null ? "?token=${DioClient.authToken}" : ""}';
 
     _controller = VideoPlayerController.networkUrl(Uri.parse(url));
     await _controller!.initialize();
