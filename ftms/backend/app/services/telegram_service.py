@@ -11,6 +11,7 @@ from telethon.errors import (
 )
 from telethon.tl.functions.channels import CreateChannelRequest
 from telethon.tl.functions.messages import ExportChatInviteRequest
+from telethon.tl.types import PeerChannel
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update
@@ -185,13 +186,13 @@ class TelegramService:
         if channel_id:
             try:
                 # Verify channel still exists
-                await self.client.get_entity(channel_id)
+                await self.client.get_entity(PeerChannel(channel_id))
                 return channel_id
             except Exception:
                 try:
                     logger.info("Channel entity not cached, fetching dialogs...")
                     await self.client.get_dialogs()
-                    await self.client.get_entity(channel_id)
+                    await self.client.get_entity(PeerChannel(channel_id))
                     return channel_id
                 except Exception:
                     logger.warning("Channel not found, creating new one")
@@ -220,10 +221,9 @@ class TelegramService:
                 progress_callback=progress_callback
             )
 
-            # Send to channel
             try:
                 message = await self.client.send_file(
-                    entity=channel_id,
+                    entity=PeerChannel(channel_id),
                     file=uploaded,
                     caption=caption,
                     silent=True,
@@ -233,7 +233,7 @@ class TelegramService:
                 logger.info("Channel entity not cached, fetching dialogs...")
                 await self.client.get_dialogs()
                 message = await self.client.send_file(
-                    entity=channel_id,
+                    entity=PeerChannel(channel_id),
                     file=uploaded,
                     caption=caption,
                     silent=True,
@@ -266,14 +266,14 @@ class TelegramService:
 
             try:
                 message = await self.client.get_messages(
-                    channel_id,
+                    PeerChannel(channel_id),
                     ids=message_id
                 )
             except Exception:
                 logger.info("Channel entity not cached, fetching dialogs...")
                 await self.client.get_dialogs()
                 message = await self.client.get_messages(
-                    channel_id,
+                    PeerChannel(channel_id),
                     ids=message_id
                 )
 
@@ -307,14 +307,14 @@ class TelegramService:
 
             try:
                 message = await self.client.get_messages(
-                    channel_id,
+                    PeerChannel(channel_id),
                     ids=message_id
                 )
             except Exception:
                 logger.info("Channel entity not cached, fetching dialogs...")
                 await self.client.get_dialogs()
                 message = await self.client.get_messages(
-                    channel_id,
+                    PeerChannel(channel_id),
                     ids=message_id
                 )
 
@@ -343,11 +343,11 @@ class TelegramService:
             if not self.client.is_connected():
                 await self.client.connect()
             try:
-                await self.client.delete_messages(channel_id, message_ids)
+                await self.client.delete_messages(PeerChannel(channel_id), message_ids)
             except Exception:
                 logger.info("Channel entity not cached, fetching dialogs...")
                 await self.client.get_dialogs()
-                await self.client.delete_messages(channel_id, message_ids)
+                await self.client.delete_messages(PeerChannel(channel_id), message_ids)
             logger.info(f"✅ Deleted messages: {message_ids}")
             return True
         except Exception as e:
