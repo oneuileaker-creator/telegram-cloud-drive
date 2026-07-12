@@ -7,9 +7,11 @@ from sqlalchemy.ext.asyncio import (
 )
 from sqlalchemy.orm import DeclarativeBase
 from app.config import settings
+import asyncio
 import logging
 
 logger = logging.getLogger(__name__)
+
 
 # Create async engine
 engine = create_async_engine(
@@ -50,10 +52,25 @@ async def get_db() -> AsyncSession:
 
 
 async def init_db():
-    """Create all tables on startup"""
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-    logger.info("✅ Database tables created")
+    """Create all tables on startup with retry logic"""
+    max_retries = 5
+    backoff = 2
+    for attempt in range(1, max_retries + 1):
+        try:
+            async with engine.begin() as conn:
+                await conn.run_sync(Base.metadata.create_all)
+            logger.info("✅ Database tables created successfully")
+            return
+        except Exception as e:
+            if attempt == max_retries:
+                logger.error(f"❌ Failed to connect to database after {max_retries} attempts: {e}")
+                raise e
+            logger.warning(
+                f"⚠️ Database connection attempt {attempt}/{max_retries} failed: {e}. "
+                f"Retrying in {backoff} seconds..."
+            )
+            await asyncio.sleep(backoff)
+            backoff *= 2
 
 
 async def close_db():
