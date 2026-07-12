@@ -97,7 +97,8 @@ async def telegram_connect(
             .values(
                 telegram_api_id=str(data.api_id),
                 telegram_api_hash=data.api_hash,
-                telegram_phone=data.phone_number
+                telegram_phone=data.phone_number,
+                telegram_session=result["session_string"]
             )
         )
         await db.commit()
@@ -132,7 +133,8 @@ async def telegram_verify(
     try:
         service = TelegramService(
             api_id=int(current_user.telegram_api_id),
-            api_hash=current_user.telegram_api_hash
+            api_hash=current_user.telegram_api_hash,
+            session_string=current_user.telegram_session or ""
         )
 
         result = await service.verify_code(

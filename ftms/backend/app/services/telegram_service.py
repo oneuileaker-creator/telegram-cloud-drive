@@ -50,10 +50,12 @@ class TelegramService:
             await self.client.connect()
             result = await self.client.send_code_request(phone_number)
 
+            session_string = self.client.session.save()
             logger.info(f"✅ Code sent to {phone_number}")
             return {
                 "phone_code_hash": result.phone_code_hash,
-                "status": "code_sent"
+                "status": "code_sent",
+                "session_string": session_string
             }
         except ApiIdInvalidError:
             raise ValueError("Invalid API ID or API Hash")
