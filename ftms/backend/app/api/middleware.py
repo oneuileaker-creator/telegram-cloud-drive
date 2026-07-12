@@ -1,9 +1,10 @@
 # app/api/middleware.py
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, status, Query
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 from jose import JWTError
+from typing import Optional
 
 from app.database.connection import get_db
 from app.database.models import User
@@ -12,11 +13,12 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-security = HTTPBearer()
+security = HTTPBearer(auto_error=False)
 
 
 async def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
+    token: Optional[str] = Query(None),
     db: AsyncSession = Depends(get_db)
 ) -> User:
     """Extract and validate current user from JWT token"""
@@ -26,8 +28,17 @@ async def get_current_user(
         headers={"WWW-Authenticate": "Bearer"},
     )
 
+    token_str = None
+    if credentials:
+        token_str = credentials.credentials
+    elif token:
+        token_str = token
+
+    if not token_str:
+        raise credentials_exception
+
     try:
-        payload = AuthService.decode_token(credentials.credentials)
+        payload = AuthService.decode_token(token_str)
         user_id: str = payload.get("sub")
         if user_id is None:
             raise credentials_exception
