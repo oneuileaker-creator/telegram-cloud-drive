@@ -159,7 +159,6 @@ async def process_upload(
 
 @router.post("/upload", response_model=UploadResponse)
 async def upload_file(
-    background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     folder_id: Optional[str] = None,
     current_user: User = Depends(get_telegram_user),
@@ -222,19 +221,99 @@ async def upload_file(
     await db.commit()
     await db.refresh(file_record)
 
-    # Queue upload in background
-    background_tasks.add_task(
-        process_upload,
-        file_data,
-        str(file_record.id),
-        current_user,
-        settings.DATABASE_URL
-    )
+    # Run FTMS Pipeline and Upload inline
+    tg = None
+    try:
+        from app.services.ftms.router import FTMSRouter
+        ftms_result = await FTMSRouter.process(
+            file_data,
+            file.filename
+        )
+
+        # Update file record with FTMS data
+        file_record.file_type = ftms_result.detection.category
+        file_record.mime_type = ftms_result.detection.mime_type
+        file_record.extension = ftms_result.detection.extension
+        file_record.file_metadata = ftms_result.metadata
+        file_record.checksum = ftms_result.checksum
+        await db.commit()
+
+        # Upload to Telegram
+        tg = await TelegramService.get_pooled(
+            api_id=int(current_user.telegram_api_id),
+            api_hash=current_user.telegram_api_hash,
+            session_string=current_user.telegram_session
+        )
+        channel_id = current_user.telegram_channel_id
+        message_ids = []
+
+        if file_size > settings.CHUNK_SIZE_BYTES:
+            from app.utils.helpers import split_into_chunks
+            chunks = split_into_chunks(file_data, settings.CHUNK_SIZE_BYTES)
+            file_record.is_chunked = True
+            file_record.total_chunks = len(chunks)
+
+            for index, chunk in enumerate(chunks):
+                chunk_record = FileChunk(
+                    file_id=file_record.id,
+                    chunk_index=index,
+                    chunk_size=len(chunk),
+                    upload_status="uploading",
+                    checksum=hashlib.sha256(chunk).hexdigest()
+                )
+                db.add(chunk_record)
+                await db.commit()
+
+                msg_id = await tg.upload_file(
+                    chunk,
+                    f"{file_record.id}_chunk_{index}.bin",
+                    channel_id
+                )
+                message_ids.append(msg_id)
+                chunk_record.telegram_message_id = msg_id
+                chunk_record.upload_status = "complete"
+                await db.commit()
+        else:
+            msg_id = await tg.upload_file(
+                file_data,
+                file_record.original_name,
+                channel_id
+            )
+            message_ids.append(msg_id)
+
+        # Upload Thumbnail
+        thumb_msg_id = None
+        if ftms_result.thumbnail:
+            thumb_msg_id = await tg.upload_thumbnail(
+                ftms_result.thumbnail.data,
+                channel_id,
+                file_record.original_name
+            )
+
+        # Final Update
+        file_record.telegram_message_ids = message_ids
+        file_record.thumbnail_message_id = thumb_msg_id
+        file_record.upload_status = "complete"
+        
+        current_user.storage_used_bytes += file_size
+        current_user.total_files += 1
+        
+        await db.commit()
+        logger.info(f"✅ FTMS Upload complete: {file_record.original_name}")
+
+    except Exception as e:
+        logger.error(f"Upload pipeline failed: {e}")
+        file_record.upload_status = "failed"
+        await db.commit()
+        raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
+    finally:
+        if tg:
+            await tg.disconnect()
 
     return UploadResponse(
         file_id=file_record.id,
-        status="uploading",
-        message=f"Upload started for '{file.filename}'"
+        status="complete",
+        message=f"Upload completed for '{file.filename}'"
     )
 
 

@@ -68,17 +68,12 @@ class _LoginScreenState extends State<LoginScreen> {
 
                     // Logo
                     Center(
-                      child: Container(
-                        width: 80,
-                        height: 80,
-                        decoration: BoxDecoration(
-                          gradient: AppColors.primaryGradient,
-                          borderRadius: BorderRadius.circular(24),
-                        ),
-                        child: const Icon(
-                          Icons.cloud_rounded,
-                          color: Colors.white,
-                          size: 40,
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(24),
+                        child: Image.asset(
+                          'assets/app_logo.png',
+                          width: 80,
+                          height: 80,
                         ),
                       ),
                     ),

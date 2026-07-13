@@ -53,11 +53,17 @@ dev_dependencies:
   flutter_lints: ^3.0.1
   hive_generator: ^2.0.1
   build_runner: ^2.4.8
+  flutter_launcher_icons: ^0.13.1
 
 flutter:
   uses-material-design: true
   assets:
     - assets/
+
+flutter_launcher_icons:
+  android: "launcher_icon"
+  ios: false
+  image_path: "assets/app_logo.png"
 
 dependency_overrides:
   win32: ^5.9.0

@@ -80,7 +80,7 @@ class _RetryInterceptor extends Interceptor {
 
   _RetryInterceptor({
     required this.dio,
-    this.maxRetries = 3,
+    this.maxRetries = 20,
     this.retryDelays = const [
       Duration(seconds: 1),
       Duration(seconds: 3),
